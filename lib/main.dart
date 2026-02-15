@@ -2,15 +2,15 @@ import 'package:flutter/material.dart';
 import 'screens/home_screen.dart';
 
 void main() {
-  runApp(PiAcademi());
+  runApp(PiAcademy());
 }
 
-class PiAcademi extends StatelessWidget {
+class PiAcademy extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'PiAcademi',
+      title: 'PiAcademy',
       theme: ThemeData(
         primarySwatch: Colors.indigo,
       ),

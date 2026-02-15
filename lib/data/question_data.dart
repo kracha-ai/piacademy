@@ -11,7 +11,12 @@ class Question {
     required this.solution,
   });
 }
-List<Question> physicsQuestions = [
+
+//////////////////////////////////////////////////////////////
+// RRB → General Science → Physics
+//////////////////////////////////////////////////////////////
+
+List<Question> rrbGeneralSciencePhysicsQuestions = [
 
   Question(
     question: "A sound wave travels with a speed of 330 m/s and wavelength is 0.33 m. Find frequency.",
@@ -33,7 +38,12 @@ List<Question> physicsQuestions = [
   ),
 
 ];
-List<Question> chemistryQuestions = [
+
+//////////////////////////////////////////////////////////////
+// RRB → General Science → Chemistry
+//////////////////////////////////////////////////////////////
+
+List<Question> rrbGeneralScienceChemistryQuestions = [
 
   Question(
     question: "Chlorine has isotopes Cl-35 (75%) and Cl-37 (25%). Average mass?",
@@ -43,13 +53,48 @@ List<Question> chemistryQuestions = [
   ),
 
 ];
-List<Question> biologyQuestions = [
+
+//////////////////////////////////////////////////////////////
+// RRB → General Science → Biology
+//////////////////////////////////////////////////////////////
+
+List<Question> rrbGeneralScienceBiologyQuestions = [
 
   Question(
     question: "Light dependent reaction occurs in?",
     options: ["Stroma", "Nucleus", "Thylakoid membrane", "Cytoplasm"],
     correctIndex: 2,
     solution: "Light reaction occurs in thylakoid membrane.",
+  ),
+
+];
+
+//////////////////////////////////////////////////////////////
+// RRB → General Studies → Polity
+//////////////////////////////////////////////////////////////
+
+List<Question> rrbGeneralStudiesPolityQuestions = [
+
+  Question(
+    question: "Who is the head of the Indian State?",
+    options: ["Prime Minister", "President", "Chief Justice", "Governor"],
+    correctIndex: 1,
+    solution: "The President is the head of the Indian State.",
+  ),
+
+];
+
+//////////////////////////////////////////////////////////////
+// RRB → Aptitude
+//////////////////////////////////////////////////////////////
+
+List<Question> rrbAptitudeQuestions = [
+
+  Question(
+    question: "What is 25% of 200?",
+    options: ["25", "50", "75", "100"],
+    correctIndex: 1,
+    solution: "25% of 200 = (25/100)*200 = 50",
   ),
 
 ];
