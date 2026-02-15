@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'subject_screen.dart';
-import 'mock_test_screen.dart';
 
 class TopicScreen extends StatelessWidget {
 
@@ -14,18 +13,17 @@ class TopicScreen extends StatelessWidget {
     List<String> topics = [
       "Aptitude",
       "Reasoning",
-      "General Studies",
+      "GS",
       "English",
-      "General Science"
+      "Science"
     ];
 
-    // Topic Color Map
     Map<String, Color> topicColors = {
       "Aptitude": Colors.orange.shade100,
       "Reasoning": Colors.teal.shade100,
-      "General Studies": Colors.green.shade100,
+      "GS": Colors.green.shade100,
       "English": Colors.pink.shade100,
-      "General Science": Colors.blue.shade100,
+      "Science": Colors.blue.shade100,
     };
 
     return Scaffold(
@@ -62,31 +60,15 @@ class TopicScreen extends StatelessWidget {
               ),
               onTap: () {
 
-                if (topicName == "General Studies" ||
-                    topicName == "General Science") {
-
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => SubjectScreen(
-                        examName: examName,
-                        topicName: topicName,
-                      ),
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => SubjectScreen(
+                      examName: examName,
+                      topicName: topicName,
                     ),
-                  );
-                }
-                else {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => MockTestScreen(
-                        exam: examName,
-                        topic: topicName,
-                        subject: "",
-                      ),
-                    ),
-                  );
-                }
+                  ),
+                );
               },
             ),
           );

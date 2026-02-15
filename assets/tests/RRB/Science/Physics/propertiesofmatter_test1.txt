@@ -1,0 +1,132 @@
+﻿Q_EN: When a coil spring is compressed, the work is done on the spring. What is the elastic potential energy? 
+Q_TE: కాయిల్ స్ప్రింగ్‌ను కుదించినప్పుడు, స్ప్రింగ్‌పై పని జరుగుతుంది. అప్పుడు స్థితిస్థాపక సంభావ్య శక్తి ఎంత?
+ASKED_IN: RRB Group-D
+A_EN: Zero  
+B_EN: Unchanged
+C_EN: Increasing 
+D_EN: Decreasing
+A_TE: సున్నా 
+B_TE: మారదు        
+C_TE: పెరుగుతోంది  
+D_TE: తగ్గుతోంది 
+ANSWER: C
+SOLUTION_EN: Potential Energy increases as work is converted to energy
+SOLUTION_TE: పని అనేది స్థితిస్థాపక సంభావ్య శక్తిగా మారుతుంది.
+Q_EN: Kerosene oil rises up in wick of a lantern because of? 
+Q_TE: లాంతరులోని వత్తిలో కిరోసిన్ నూనె పైకి ఎందుకు లేస్తుంది
+ASKED_IN: RRB NTPC
+A_EN: gravitation 
+B_EN: capillarity
+C_EN:  diffusion
+D_EN: osmosis
+A_TE: గురుత్వాకర్షణ 
+B_TE: కేశనాళికశక్తి
+C_TE: వ్యాప్తి
+D_TE: ద్రవాభిసరణము 	
+ANSWER: B
+SOLUTION_EN: Capillarity is caused by the interaction of adhesion (the attraction between liquid and tube molecules) and cohesion (the attraction between liquid molecules themselves). When adhesive forces exceed cohesive forces, surface tension pulls the liquid up through a narrow space.
+SOLUTION_TE: క్యాపిల్లారిటీ అనేది అంటుకునే శక్తి (ద్రవం మరియు పైప్ అణువుల మధ్య ఆకర్షణ) మరియు సాంఘిక శక్తి (ద్రవం అణువులలో తమకే ఉన్న ఆకర్షణ) పరస్పర చర్య వలన ఏర్పడుతుంది.  అంటుకునే శక్తులు సాంఘిక శక్తులను అధిగమిస్తే, తలతన్యత ద్రవాన్ని సన్నని గ్యాపులో పైకి లాగుతుంది.									
+Q_EN: Due to which property the water drop is spherical- 
+Q_TE: నీటి బిందువు గోళాకారంగా ఉండటం దీని లక్షణం- 			
+ASKED_IN: RRB J.E. 
+A_EN: Surface tension 
+B_EN: Water solubility
+C_EN: Water capillary 
+D_EN: Viscosity of water
+A_TE: తలతన్యత
+B_TE: నీటిలో కరిగే సామర్థ్యం 
+C_TE: నీటి కేశనాళిక 
+D_TE: నీటి చిక్కదనం 
+ANSWER: A
+SOLUTION_EN:  Surface tension is caused by the unbalanced cohesive forces acting on molecules at the liquid's surface, pulling them inward toward the bulk of the liquid.
+SOLUTION_TE: తలతన్యత అనేది ద్రవం ఉపరితలంలో అణువుల మద్య  అమలవుతున్న అసమతుల ఆకర్షణ శక్తుల వల్ల కలుగుతుంది, ఇవి అణువులను లోపలికి మరియు ద్రవపు ప్రధాన భాగం వైపు లాగుతాయి.
+Q_EN: The friction in liquids is called :					
+Q_TE: ద్రవాలలో ఘర్షణను ఇలా పిలుస్తారు:
+ASKED_IN: RRB NTPC
+A_EN: Rigidity
+B_EN: Viscosity 
+C_EN: Morbidity 
+D_EN: Rancidity
+A_TE: దృఢత్వం 
+B_TE: చిక్కదనం
+C_TE: అనారోగ్యత 
+D_TE: రాన్సిడిటీ 
+ANSWER: B
+SOLUTION_EN: The primary reason for viscosity is the internal friction between layers of a fluid as they move past each other, caused by intermolecular forces.
+SOLUTION_TE: ద్రవాల పొరల మధ్య జరిగే అంతర్గత ఘర్షణ (internal friction) మరియు అణువుల మధ్య ఉండే ఆకర్షణ బలాలు చిక్కదనానికి (viscosity) ప్రధాన కారణం.
+Q_EN: The ability of a material to deform without breaking is called :
+Q_TE: ఒక పదార్థం విచ్ఛిన్నం కాకుండా వైకల్యం చెందగల సామర్థ్యాన్ని ఇలా పిలుస్తారు:	
+ASKED_IN: RRB J.E. 
+A_EN: Flexibility 
+B_EN: Creep
+C_EN: Plasticity 
+D_EN: Elasticity
+A_TE: వశ్యత 
+B_TE: క్రీప్ 
+C_TE: ప్లాస్టిసిటీ
+D_TE: స్థితిస్థాపకత 
+ANSWER: C
+SOLUTION_EN: Plasticity is the property of a material that allows it to undergo permanent deformation when a force is applied, without breaking or cracking.
+SOLUTION_TE: ఒక పదార్థంపై బలాన్ని ప్రయోగించినప్పుడు, అది విరిగిపోకుండా తన ఆకారాన్ని శాశ్వతంగా మార్చుకునే గుణాన్ని 'ప్లాస్టిసిటీ' అంటారు. బలాన్ని తీసివేసినా అది తిరిగి పాత రూపానికి రాదు.
+
+Q_EN: The force of attraction applied between molecules of the same substance is called:
+Q_TE: ఒకే పదార్ధం యొక్క అణువుల మధ్య వర్తించే ఆకర్షణ బలాన్ని ఇలా పిలుస్తారు:		
+ASKED_IN: RRB NTPC
+A_EN: cohesive force
+B_EN: adhesive force	
+C_EN: capillarity         
+D_EN:surface tension
+A_TE: సంశ్లేషణ శక్తి        
+B_TE: అంటుకునే శక్తి 
+C_TE: కేశనాళిక శక్తి 
+D_TE: తలతన్యత
+ANSWER: A
+SOLUTION_EN: Cohesive force
+SOLUTION_TE: సంశ్లేషణ శక్తి
+Q_EN: Bernoulli's theorem deals with the principle of conservation of-
+Q_TE: బెర్నౌలీ సిద్ధాంతం సంరక్షణ సూత్రంతో వ్యవహరిస్తుంది-		
+ASKED_IN: RRB-JE
+A_EN: Momentum 
+B_EN: Force 
+C_EN: Mass
+D_EN:Energy
+A_TE: ద్రవ్యవేగము  
+B_TE: బలం 
+C_TE: ద్రవ్యరాశి 
+D_TE: శక్తి 
+ANSWER:  D
+SOLUTION_EN: It states that for an incompressible, non-viscous fluid in a steady flow, the sum of pressure energy, kinetic energy, and potential energy per unit volume remains constant at every point.
+SOLUTION_TE: ఒక అసంకోచ్య (incompressible), స్నిగ్ధత లేని (non-viscous) ద్రవం స్థిర ప్రవాహంలో (steady flow) ఉన్నప్పుడు, దానిలోని ప్రతి బిందువు వద్ద పీడన శక్తి (pressure energy), గతి శక్తి (kinetic energy) మరియు స్థితిజ శక్తి (potential energy) ల మొత్తం స్థిరంగా ఉంటుంది.
+Q_EN: For perfectly elastic bodies, the value of coefficient of restitution is : 
+Q_TE: సంపూర్ణ స్థితిస్థాపక వస్తువులకు, పునఃస్థాపన గుణకం విలువ : 
+ASKED_IN: RRB J.E.
+A_EN: 0 
+B_EN: 0.5
+C_EN: 1.0
+D_EN: 0.25
+A_TE: 0 
+B_TE: 0.5
+C_TE: 1.0
+D_TE: 0.25		
+ANSWER: C
+SOLUTION_EN: The coefficient of restitution (e) measures the "bounciness" of a collision. In a perfectly elastic collision, there is no loss of kinetic energy. The relative velocity of separation after the collision is exactly equal to the relative velocity of approach before the collision.
+SOLUTION_TE: ఒక సంపూర్ణ స్థితిస్థాపక అభిఘాతం జరిగినప్పుడు, శక్తి నష్టం అనేది ఉండదు. వస్తువులు ఒకదానికొకటి తగిలిన తర్వాత విడిపోయే వేగం, అవి తగిలే ముందు ఉన్న వేగంతో సమానంగా ఉంటుంది.
+
+Q_EN: What would be the force generated by a wall on which water strike normally at a speed of 10 m/s and at a discharge of 0.0001 m³/sec? 
+Q_TE: సాధారణంగా 10 మీ/సె వేగంతో మరియు 0.0001 మీ³/సెకను ఉత్సర్గంతో నీరు తాకిన గోడ ద్వారా ఉత్పత్తి అయ్యే బలం ఎంత? 
+ASKED_IN: RRB Group-D
+A_EN: 1 N 	 
+B_EN: 0.1 N	
+C_EN: 10 N 
+D_EN: 100 N
+A_TE: 1 N 	 
+B_TE: 0.1 N	
+C_TE: 10 N 
+D_TE: 100 N
+ANSWER: A
+SOLUTION_EN: The force (F) exerted by a jet of water hitting a flat stationary plate normally is:
+F= rho* Q *v
+SOLUTION_TE:  గోడపై నిట్టనిలువుగా (normally) నీరు తగిలినప్పుడు ఏర్పడే బలాన్ని కనుగొనడానికి మనం పై సూత్రాన్ని ఉపయోగిస్తాం.
+
+
+

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'mock_test_screen.dart';
+import 'test_list_screen.dart';
+
 
 class SubjectScreen extends StatelessWidget {
 
@@ -17,10 +18,10 @@ class SubjectScreen extends StatelessWidget {
 
     List<String> subjects = [];
 
-    if (topicName == "General Studies") {
+    if (topicName == "GS") {
       subjects = ["Polity", "Geography", "Economics"];
     }
-    else if (topicName == "General Science") {
+    else if (topicName == "Science") {
       subjects = ["Physics", "Chemistry", "Biology"];
     }
 
@@ -41,7 +42,7 @@ class SubjectScreen extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => MockTestScreen(
+                    builder: (context) => TestListScreen(
                       exam: examName,
                       topic: topicName,
                       subject: subjects[index],

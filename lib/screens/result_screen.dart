@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../data/question_data.dart';
+import '../models/question.dart';
 
 class ResultScreen extends StatelessWidget {
 
@@ -8,7 +8,8 @@ class ResultScreen extends StatelessWidget {
   final List<Question> questions;
   final List<int?> userAnswers;
 
-  ResultScreen({
+  const ResultScreen({
+    super.key,
     required this.score,
     required this.total,
     required this.questions,
@@ -17,8 +18,12 @@ class ResultScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+
     return Scaffold(
-      appBar: AppBar(title: Text("Result")),
+      appBar: AppBar(
+        title: const Text("Result"),
+        backgroundColor: Colors.red,
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -26,12 +31,13 @@ class ResultScreen extends StatelessWidget {
 
             Text(
               "Your Score: $score / $total",
-              style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
             ),
 
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
 
             Expanded(
               child: ListView.builder(
@@ -45,37 +51,82 @@ class ResultScreen extends StatelessWidget {
                   final isCorrect = userAnswer == correctIndex;
 
                   return Card(
-                    margin: EdgeInsets.symmetric(vertical: 8),
+                    margin: const EdgeInsets.symmetric(vertical: 8),
                     child: Padding(
                       padding: const EdgeInsets.all(12.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
 
+                          // English Question
                           Text(
-                            question.question,
-                            style: TextStyle(fontWeight: FontWeight.bold),
+                            question.questionEn,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
 
-                          SizedBox(height: 8),
+                          const SizedBox(height: 4),
+
+                          // Telugu Question
+                          Text(
+                            question.questionTe,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+
+                          const SizedBox(height: 8),
+
+                          // Optional Asked In
+                          if (question.askedIn.trim().isNotEmpty)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
+                              margin: const EdgeInsets.only(bottom: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.yellow.shade100,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                "Asked in: ${question.askedIn}",
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+
+                          const SizedBox(height: 6),
 
                           Text(
-                            "Your Answer: ${userAnswer != null ? question.options[userAnswer] : "Not Answered"}",
+                            "Your Answer: ${userAnswer != null ? question.optionsEn[userAnswer] : "Not Answered"}",
                             style: TextStyle(
                               color: isCorrect ? Colors.green : Colors.red,
                             ),
                           ),
 
                           Text(
-                            "Correct Answer: ${question.options[correctIndex]}",
-                            style: TextStyle(color: Colors.green),
+                            "Correct Answer: ${question.optionsEn[correctIndex]}",
+                            style: const TextStyle(
+                              color: Colors.green,
+                            ),
                           ),
 
-                          SizedBox(height: 8),
+                          const SizedBox(height: 8),
 
+                          // English Solution
                           Text(
-                            "Solution: ${question.solution}",
-                            style: TextStyle(fontSize: 14),
+                            "Solution (EN): ${question.solutionEn}",
+                            style: const TextStyle(fontSize: 14),
+                          ),
+
+                          const SizedBox(height: 4),
+
+                          // Telugu Solution
+                          Text(
+                            "Solution (TE): ${question.solutionTe}",
+                            style: const TextStyle(fontSize: 14),
                           ),
                         ],
                       ),
@@ -85,12 +136,17 @@ class ResultScreen extends StatelessWidget {
               ),
             ),
 
+            const SizedBox(height: 10),
+
             ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+              ),
               onPressed: () {
                 Navigator.pop(context);
               },
-              child: Text("Back"),
-            )
+              child: const Text("Back"),
+            ),
           ],
         ),
       ),

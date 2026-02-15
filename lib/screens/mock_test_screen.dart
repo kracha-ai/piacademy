@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
-import '../data/question_data.dart';
+import 'package:flutter/services.dart';
 import 'result_screen.dart';
+import '../models/question.dart';
 
 class MockTestScreen extends StatefulWidget {
   final String exam;
   final String topic;
   final String subject;
+  final String testFile;
 
   const MockTestScreen({
     super.key,
     required this.exam,
     required this.topic,
     required this.subject,
+    required this.testFile,
   });
 
   @override
@@ -19,90 +22,111 @@ class MockTestScreen extends StatefulWidget {
 }
 
 class _MockTestScreenState extends State<MockTestScreen> {
-
-  late List<Question> questions;
+  List<Question> questions = [];
   List<int?> userAnswers = [];
 
   int currentQuestionIndex = 0;
   int score = 0;
   int? selectedAnswerIndex;
 
+  bool isLoading = true;
+
   @override
   void initState() {
     super.initState();
-
-    if (widget.exam == "RRB" &&
-        widget.topic == "General Science" &&
-        widget.subject == "Physics") {
-
-      questions = rrbGeneralSciencePhysicsQuestions;
-    }
-
-    else if (widget.exam == "RRB" &&
-        widget.topic == "General Science" &&
-        widget.subject == "Chemistry") {
-
-      questions = rrbGeneralScienceChemistryQuestions;
-    }
-
-    else if (widget.exam == "RRB" &&
-        widget.topic == "General Science" &&
-        widget.subject == "Biology") {
-
-      questions = rrbGeneralScienceBiologyQuestions;
-    }
-
-    else if (widget.exam == "RRB" &&
-        widget.topic == "General Studies" &&
-        widget.subject == "Polity") {
-
-      questions = rrbGeneralStudiesPolityQuestions;
-    }
-
-    else if (widget.exam == "RRB" &&
-        widget.topic == "Aptitude") {
-
-      questions = rrbAptitudeQuestions;
-    }
-
-    else {
-      questions = [];
-    }
-
-    userAnswers = List.filled(questions.length, null);
+    loadQuestions();
   }
 
-  void nextQuestion() {
+  // ================= LOAD QUESTIONS =================
 
-    userAnswers[currentQuestionIndex] = selectedAnswerIndex;
+  Future<void> loadQuestions() async {
+    try {
+      final data = await rootBundle.loadString(widget.testFile);
 
-    if (selectedAnswerIndex ==
-        questions[currentQuestionIndex].correctIndex) {
-      score++;
-    }
+      List<Question> loadedQuestions = parseQuestions(data);
 
-    if (currentQuestionIndex < questions.length - 1) {
       setState(() {
-        currentQuestionIndex++;
-        selectedAnswerIndex = null;
+        questions = loadedQuestions;
+        userAnswers = List.filled(questions.length, null);
+        isLoading = false;
       });
-    } else {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => ResultScreen(
-            score: score,
-            total: questions.length,
-            questions: questions,
-            userAnswers: userAnswers,
-          ),
+    } catch (e) {
+      print("Error loading questions: $e");
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  // ================= PARSE FUNCTION =================
+
+  List<Question> parseQuestions(String rawData) {
+    List<Question> questionList = [];
+
+    List<String> blocks = rawData.split("Q_EN:");
+
+    for (int i = 1; i < blocks.length; i++) {
+      String block = "Q_EN:" + blocks[i];
+
+      String qEn = extract(block, "Q_EN:");
+      String qTe = extract(block, "Q_TE:");
+      String askedIn = extract(block, "ASKED_IN:");
+
+      List<String> optionsEn = [
+        extract(block, "A_EN:"),
+        extract(block, "B_EN:"),
+        extract(block, "C_EN:"),
+        extract(block, "D_EN:")
+      ];
+
+      List<String> optionsTe = [
+        extract(block, "A_TE:"),
+        extract(block, "B_TE:"),
+        extract(block, "C_TE:"),
+        extract(block, "D_TE:")
+      ];
+
+      String answerLetter = extract(block, "ANSWER:");
+      int correctIndex =
+      ["A", "B", "C", "D"].indexOf(answerLetter.trim());
+
+      String solEn = extract(block, "SOLUTION_EN:");
+      String solTe = extract(block, "SOLUTION_TE:");
+
+      questionList.add(
+        Question(
+          questionEn: qEn,
+          questionTe: qTe,
+          optionsEn: optionsEn,
+          optionsTe: optionsTe,
+          correctIndex: correctIndex,
+          solutionEn: solEn,
+          solutionTe: solTe,
+          askedIn: askedIn,
         ),
       );
     }
+
+    return questionList;
   }
+
+  // ================= HELPER =================
+
+  String extract(String text, String key) {
+    RegExp reg = RegExp('$key(.*)');
+    var match = reg.firstMatch(text);
+    return match != null ? match.group(1)!.trim() : "";
+  }
+
+  // ================= BUILD =================
 
   @override
   Widget build(BuildContext context) {
+    if (isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
 
     if (questions.isEmpty) {
       return Scaffold(
@@ -116,15 +140,13 @@ class _MockTestScreenState extends State<MockTestScreen> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.red,
-        title: Text("${widget.topic} Test"),
+        title: Text("${widget.subject} Test"),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-
-            // Question Counter
             Text(
               "Question ${currentQuestionIndex + 1} of ${questions.length}",
               style: const TextStyle(
@@ -132,25 +154,42 @@ class _MockTestScreenState extends State<MockTestScreen> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-
             const SizedBox(height: 20),
 
-            // Question Text
             Text(
-              currentQuestion.question,
-              style: const TextStyle(
-                fontSize: 18,
-              ),
+              currentQuestion.questionEn,
+              style: const TextStyle(fontSize: 18),
             ),
+            const SizedBox(height: 6),
+            Text(
+              currentQuestion.questionTe,
+              style: const TextStyle(fontSize: 18),
+            ),
+            const SizedBox(height: 8),
+
+            if (currentQuestion.askedIn.trim().isNotEmpty)
+              Container(
+                padding:
+                const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.yellow.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  "Asked in: ${currentQuestion.askedIn}",
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
 
             const SizedBox(height: 20),
 
-            // Options List
             Expanded(
               child: ListView.builder(
-                itemCount: currentQuestion.options.length,
+                itemCount: currentQuestion.optionsEn.length,
                 itemBuilder: (context, index) {
-
                   List<String> labels = ["A", "B", "C", "D"];
                   bool isSelected = selectedAnswerIndex == index;
 
@@ -161,11 +200,14 @@ class _MockTestScreenState extends State<MockTestScreen> {
                       });
                     },
                     child: Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.all(16),
+                      margin:
+                      const EdgeInsets.only(bottom: 12),
+                      padding:
+                      const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius:
+                        BorderRadius.circular(12),
                         border: Border.all(
                           color: isSelected
                               ? Colors.black87
@@ -174,27 +216,26 @@ class _MockTestScreenState extends State<MockTestScreen> {
                         ),
                       ),
                       child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment:
+                        CrossAxisAlignment.start,
                         children: [
-
-                          // Option Letter
                           Text(
                             "${labels[index]}. ",
                             style: TextStyle(
-                              fontWeight:
-                              isSelected ? FontWeight.bold : FontWeight.normal,
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
                               fontSize: 16,
                             ),
                           ),
-
-                          // Option Text
                           Expanded(
                             child: Text(
-                              currentQuestion.options[index],
+                              "${currentQuestion.optionsEn[index]}\n${currentQuestion.optionsTe[index]}",
                               style: TextStyle(
                                 fontSize: 16,
-                                fontWeight:
-                                isSelected ? FontWeight.bold : FontWeight.normal,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
                               ),
                             ),
                           ),
@@ -208,19 +249,12 @@ class _MockTestScreenState extends State<MockTestScreen> {
 
             const SizedBox(height: 10),
 
-            // Next Button
             Row(
               children: [
-
-                // Previous Button
                 Expanded(
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.grey,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
                     ),
                     onPressed: currentQuestionIndex == 0
                         ? null
@@ -231,49 +265,33 @@ class _MockTestScreenState extends State<MockTestScreen> {
                         userAnswers[currentQuestionIndex];
                       });
                     },
-                    child: const Text(
-                      "Previous",
-                      style: TextStyle(fontSize: 16),
-                    ),
+                    child: const Text("Previous"),
                   ),
                 ),
-
                 const SizedBox(width: 12),
-
-                // Next / Submit Button
                 Expanded(
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
                     ),
                     onPressed: selectedAnswerIndex == null
                         ? null
                         : () {
-
                       userAnswers[currentQuestionIndex] =
                           selectedAnswerIndex;
 
                       if (currentQuestionIndex <
                           questions.length - 1) {
-
                         setState(() {
                           currentQuestionIndex++;
                           selectedAnswerIndex =
                           userAnswers[currentQuestionIndex];
                         });
-
                       } else {
-
-                        // Calculate score before submit
                         score = 0;
                         for (int i = 0;
                         i < questions.length;
                         i++) {
-
                           if (userAnswers[i] ==
                               questions[i].correctIndex) {
                             score++;
@@ -286,9 +304,11 @@ class _MockTestScreenState extends State<MockTestScreen> {
                             builder: (context) =>
                                 ResultScreen(
                                   score: score,
-                                  total: questions.length,
+                                  total:
+                                  questions.length,
                                   questions: questions,
-                                  userAnswers: userAnswers,
+                                  userAnswers:
+                                  userAnswers,
                                 ),
                           ),
                         );
@@ -299,7 +319,6 @@ class _MockTestScreenState extends State<MockTestScreen> {
                           questions.length - 1
                           ? "Submit Test"
                           : "Next",
-                      style: const TextStyle(fontSize: 16),
                     ),
                   ),
                 ),
