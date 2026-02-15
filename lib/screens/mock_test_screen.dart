@@ -5,7 +5,7 @@ import 'result_screen.dart';
 class MockTestScreen extends StatefulWidget {
   final String topic;
 
-  MockTestScreen({required this.topic});
+  const MockTestScreen({super.key, required this.topic});
 
   @override
   State<MockTestScreen> createState() => _MockTestScreenState();
@@ -26,16 +26,14 @@ class _MockTestScreenState extends State<MockTestScreen> {
 
     if (widget.topic == "Physics") {
       questions = physicsQuestions;
-    }
-    else if (widget.topic == "Chemistry") {
+    } else if (widget.topic == "Chemistry") {
       questions = chemistryQuestions;
-    }
-    else if (widget.topic == "Biology") {
+    } else if (widget.topic == "Biology") {
       questions = biologyQuestions;
-    }
-    else {
+    } else {
       questions = [];
     }
+
     userAnswers = List.filled(questions.length, null);
   }
 
@@ -73,8 +71,8 @@ class _MockTestScreenState extends State<MockTestScreen> {
 
     if (questions.isEmpty) {
       return Scaffold(
-        appBar: AppBar(title: Text("Mock Test")),
-        body: Center(child: Text("No Questions Available")),
+        appBar: AppBar(title: const Text("Mock Test")),
+        body: const Center(child: Text("No Questions Available")),
       );
     }
 
@@ -82,6 +80,7 @@ class _MockTestScreenState extends State<MockTestScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: Colors.red,
         title: Text("${widget.topic} Test"),
       ),
       body: Padding(
@@ -89,47 +88,101 @@ class _MockTestScreenState extends State<MockTestScreen> {
         child: Column(
           children: [
 
-            Text(
-              "Question ${currentQuestionIndex + 1} / ${questions.length}",
-              style: TextStyle(fontSize: 16),
+            // Progress Bar
+            LinearProgressIndicator(
+              value: (currentQuestionIndex + 1) / questions.length,
+              backgroundColor: Colors.red.shade100,
+              color: Colors.red,
+              minHeight: 8,
             ),
 
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
 
             Text(
-              currentQuestion.question,
-              style: TextStyle(fontSize: 18),
+              "Question ${currentQuestionIndex + 1} of ${questions.length}",
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
             ),
 
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
 
-            ...List.generate(
-              currentQuestion.options.length,
-                  (index) => RadioListTile<int>(
-                title: Text(currentQuestion.options[index]),
-                value: index,
-                groupValue: selectedAnswerIndex,
-                onChanged: (value) {
-                  setState(() {
-                    selectedAnswerIndex = value;
-                  });
+            // Question Card
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Text(
+                currentQuestion.question,
+                style: const TextStyle(
+                  fontSize: 18,
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            // Options
+            Expanded(
+              child: ListView.builder(
+                itemCount: currentQuestion.options.length,
+                itemBuilder: (context, index) {
+
+                  bool isSelected = selectedAnswerIndex == index;
+
+                  return Card(
+                    elevation: 4,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    color: isSelected
+                        ? Colors.red.shade100
+                        : Colors.white,
+                    child: RadioListTile<int>(
+                      title: Text(currentQuestion.options[index]),
+                      value: index,
+                      groupValue: selectedAnswerIndex,
+                      activeColor: Colors.red,
+                      onChanged: (value) {
+                        setState(() {
+                          selectedAnswerIndex = value;
+                        });
+                      },
+                    ),
+                  );
                 },
               ),
             ),
 
-            SizedBox(height: 20),
+            const SizedBox(height: 10),
 
-            ElevatedButton(
-              onPressed:
-              selectedAnswerIndex == null ? null : nextQuestion,
-              child: Text(
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onPressed:
+                selectedAnswerIndex == null ? null : nextQuestion,
+                child: Text(
                   currentQuestionIndex == questions.length - 1
-                      ? "Submit"
-                      : "Next"),
-            )
+                      ? "Submit Test"
+                      : "Next Question",
+                  style: const TextStyle(fontSize: 16),
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 }
+
