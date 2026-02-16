@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'screens/home_screen.dart';
+import 'screens/splash_screen.dart';
+
 
 void main() {
   runApp(PiAcademy());
@@ -14,7 +15,7 @@ class PiAcademy extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.indigo,
       ),
-      home: HomeScreen(),
+      home: SplashScreen(),
     );
   }
 }

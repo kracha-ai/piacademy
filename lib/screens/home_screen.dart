@@ -18,9 +18,9 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentPage = 0;
 
   final List<String> posters = [
-    "assets/poster1.png",
-    "assets/poster2.png",
-    "assets/poster3.png",
+    "assets/images/poster1.png",
+    "assets/images/poster2.png",
+    "assets/images/poster3.png",
   ];
 
   Timer? _timer;
@@ -108,7 +108,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Image.asset("assets/logo.png", height: 45),
+                  Image.asset("assets/images/logo.png", height: 45),
                   const SizedBox(width: 10),
                   const Text(
                     "Pi Academy",
@@ -135,14 +135,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     buildSquareButton(
                       context,
                       "Syllabus",
-                      "assets/syllabus.png",
+                      "assets/images/syllabus.png",
                           () {},
                     ),
 
                     buildSquareButton(
                       context,
                       "Mock Tests",
-                      "assets/test.png",
+                      "assets/images/test.png",
                           () {
                         Navigator.push(
                           context,
@@ -156,14 +156,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     buildSquareButton(
                       context,
                       "Notes",
-                      "assets/notes.png",
+                      "assets/images/notes.png",
                           () {},
                     ),
 
                     buildSquareButton(
                       context,
                       "Results",
-                      "assets/result.png",
+                      "assets/images/result.png",
                           () {},
                     ),
                   ],
