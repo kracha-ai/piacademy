@@ -73,19 +73,44 @@ class _TestListScreenState extends State<TestListScreen> {
             child: ListTile(
               title: Text(fileName),
               trailing: const Icon(Icons.arrow_forward),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        MockTestScreen(
-                          exam: widget.exam,
-                          topic: widget.topic,
-                          subject: widget.subject,
-                          testFile: filePath,
-                        ),
-                  ),
+              onTap: () async {
+
+                String? selectedLanguage = await showDialog<String>(
+                  context: context,
+                  builder: (context) {
+                    return AlertDialog(
+                      title: const Text("Select Language"),
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ElevatedButton(
+                            onPressed: () => Navigator.pop(context, "en"),
+                            child: const Text("English"),
+                          ),
+                          ElevatedButton(
+                            onPressed: () => Navigator.pop(context, "te"),
+                            child: const Text("తెలుగు"),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
                 );
+
+                if (selectedLanguage != null) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => MockTestScreen(
+                        exam: widget.exam,
+                        topic: widget.topic,
+                        subject: widget.subject,
+                        testFile: filePath,
+                        language: selectedLanguage,
+                      ),
+                    ),
+                  );
+                }
               },
             ),
           );
