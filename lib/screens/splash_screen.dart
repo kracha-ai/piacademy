@@ -13,8 +13,9 @@ class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
 
   late AnimationController _controller;
-  late Animation<double> _fadeAnimation; // Single animation for both logo and text
-  final String text = "Pi Academy";
+  late Animation<double> _fadeAnimation; // <-- Declared here
+  late Animation<double> _scaleAnimation;
+  final String text = "Pi Academy"; // <-- Declared here
 
   @override
   void initState() {
@@ -30,11 +31,19 @@ class _SplashScreenState extends State<SplashScreen>
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: const Interval(0.0, 0.5, curve: Curves.easeIn), // Both fade in during the first half
+        curve: const Interval(0.0, 0.5, curve: Curves.easeIn),
       ),
     );
 
-    _controller.forward();
+    // Define scale animation: starts at 0.8 scale, ends at 1.0 scale
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.0, 0.5, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    _controller.forward(); // This should be called once
 
     _controller.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
@@ -45,29 +54,22 @@ class _SplashScreenState extends State<SplashScreen>
             const HomeScreen(),
             transitionsBuilder:
                 (context, animation, secondaryAnimation, child) {
-              // This is the "left to right push" animation:
-              // The new screen slides in from the right edge (1.0)
-              // to its final position (0.0).
-              const begin = Offset(1.0, 0.0); // Start from the right edge
-              const end = Offset.zero;       // End at its default position
-              const curve = Curves.elasticOut; // A nice smooth acceleration/deceleration
-
-              // Create a Tween for the offset
+              const begin = Offset(1.0, 0.0);
+              const end = Offset.zero;
+              const curve = Curves.elasticOut;
               var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-
-              // Apply the SlideTransition
               return SlideTransition(
                 position: animation.drive(tween),
-                child: child, // The HomeScreen is the child here
+                child: child,
               );
             },
-            transitionDuration: const Duration(milliseconds: 2000), // How long the slide transition takes
+            transitionDuration: const Duration(milliseconds: 2000),
           ),
         );
         // -----------------------------------------------------------
       }
     });
-  }
+  } // <-- This is the correct closing brace for initState
 
   @override
   void dispose() {
@@ -78,44 +80,57 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.blue,
-      body: SizedBox.expand(
-        child: AnimatedBuilder(
-          animation: _controller,
-          builder: (context, child) {
-            return Stack(
-              alignment: Alignment.center,
-              children: [
-                // Logo - centered and fading in with the shared animation
-                Opacity(
-                  opacity: _fadeAnimation.value,
-                  child: Image.asset(
-                    'assets/images/logo.png',
-                    width: 130,
-                  ),
-                ),
-                // Text - centered below logo and fading in with the shared animation
-                Align(
-                  alignment: Alignment.center,
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 180.0), // Keep your original padding for vertical alignment
-                    child: Opacity(
-                      opacity: _fadeAnimation.value,
-                      child: Text(
-                        text,
-                        style: const TextStyle(
-                          fontSize: 30,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 2,
-                          color: Colors.white,
-                        ),
+      // Ensure the gradient background from previous classy look
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF0D47A1), Color(0xFF42A5F5)], // Deep blue to a vibrant blue
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: SizedBox.expand(
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (context, child) {
+              return Column( // Use Column to stack logo and text vertically
+                mainAxisAlignment: MainAxisAlignment.center, // Center vertically
+                children: [
+                  // Logo with Opacity and new ScaleTransition
+                  Opacity(
+                    opacity: _fadeAnimation.value,
+                    child: Transform.scale( // Apply the scale animation here
+                      scale: _scaleAnimation.value,
+                      child: Image.asset(
+                        'assets/images/logo.png',
+                        width: 150,
                       ),
                     ),
                   ),
-                ),
-              ],
-            );
-          },
+                  const SizedBox(height: 20), // Spacing between logo and text
+                  Opacity(
+                    opacity: _fadeAnimation.value,
+                    child: Text(
+                      text,
+                      style: const TextStyle(
+                        fontSize: 34,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2.5,
+                        color: Colors.white,
+                        shadows: [
+                          Shadow(
+                            blurRadius: 4.0,
+                            color: Colors.black26,
+                            offset: Offset(2.0, 2.0),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );

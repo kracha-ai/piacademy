@@ -1,8 +1,73 @@
 import 'package:flutter/material.dart';
-import 'exam_screen.dart';
-import 'dart:async';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:carousel_slider/carousel_slider.dart';
+import 'exam_screen.dart'; // Make sure this file exists
 
+// --- POSTER SECTION ---
+class PosterSection extends StatefulWidget {
+  const PosterSection({super.key});
+
+  @override
+  State<PosterSection> createState() => _PosterSectionState();
+}
+
+class _PosterSectionState extends State<PosterSection> {
+  final List<String> posterPaths = [
+    'assets/images/poster1.png',
+    'assets/images/poster2.png',
+    'assets/images/poster3.png',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return CarouselSlider.builder(
+      itemCount: posterPaths.length,
+      itemBuilder: (context, index, realIndex) {
+        return Container(
+          // Use the full width of the container space
+          width: MediaQuery.of(context).size.width,
+          margin: const EdgeInsets.symmetric(horizontal: 4.0),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20.0),
+            // Optional: Add shadow specifically to the container
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12.0),
+            child: Image.asset(
+              posterPaths[index],
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  color: Colors.grey.shade300,
+                  child: const Center(
+                    child: Icon(Icons.broken_image, color: Colors.grey, size: 50),
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      },
+      options: CarouselOptions(
+        height: 160.0,
+        autoPlay: true,
+        autoPlayInterval: const Duration(seconds: 3),
+        autoPlayAnimationDuration: const Duration(milliseconds: 1200),
+        autoPlayCurve: Curves.fastOutSlowIn,
+        enlargeCenterPage: true,
+        viewportFraction: 0.95, // Increased slightly for better look
+      ),
+    );
+  }
+}
+
+// --- HOME SCREEN ---
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -11,282 +76,204 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final List<String> languages = ["English", "తెలుగు"];
+  String selectedLanguage = "English";
 
-  final PageController _pageController =
-  PageController(viewportFraction: 0.88);
-
-  int _currentPage = 0;
-
-  final List<String> posters = [
-    "assets/images/poster1.png",
-    "assets/images/poster2.png",
-    "assets/images/poster3.png",
+  // FIXED: Removed 'const' and changed 'targetScreen' to a Function (WidgetBuilder)
+  // This prevents the error and ensures the screen is built fresh on navigation.
+  final List<Map<String, dynamic>> gridButtons = [
+    {
+      'text': 'Mock Tests',
+      'iconPath': 'assets/images/test.png',
+      'targetScreen': (BuildContext context) => const ExamScreen(),
+    },
+    {
+      'text': 'notes',
+      'iconPath': 'assets/images/notes.png',
+      'targetScreen': null,
+    },
+    {
+      'text': 'courses',
+      'iconPath': 'assets/images/courses.png',
+      'targetScreen': null,
+    },
+    {
+      'text': 'Practice',
+      'iconPath': 'assets/images/practice.png',
+      'targetScreen': null,
+    },
   ];
-
-  Timer? _timer;
-
-  @override
-  void initState() {
-    super.initState();
-
-    _timer = Timer.periodic(const Duration(seconds: 2), (timer) {
-      if (_currentPage < posters.length - 1) {
-        _currentPage++;
-      } else {
-        _currentPage = 0;
-      }
-
-      _pageController.animateToPage(
-        _currentPage,
-        duration: const Duration(milliseconds: 600),
-        curve: Curves.easeInOut,
-      );
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    _pageController.dispose();
-    super.dispose();
-  }
-
-  Future<void> openYoutube() async {
-    //!! IMPORTANT: Replace "@YOUR_CHANNEL" with your actual YouTube channel URL!!
-    final Uri url = Uri.parse("https://youtube.com/@Piacademy9");
-    if (await canLaunchUrl(url)) { // Added check if URL can be launched
-      await launchUrl(url, mode: LaunchMode.externalApplication);
-    } else {
-      // You could show a SnackBar or AlertDialog here if the URL can't be launched
-      print('Could not launch $url');
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar( // <--- MODIFIED AppBar HERE
-        backgroundColor: Colors.blue[900], // Changed to a dark blue!
-        elevation: 0, // No shadow
-        centerTitle: false, // Align title to the left
-        title: Row( // Row for logo and text
-          children: [
-            Image.asset(
-              "assets/images/logo.png",
-              height: 30, // Adjust logo size for AppBar
-              semanticLabel: 'Pi Academy logo',
-            ),
-            const SizedBox(width: 8),
-            const Text(
-              "Pi Academy",
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 22, // Adjust font size for AppBar
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-        iconTheme: const IconThemeData(color: Colors.white), // Set hamburger icon color to white
-      ),
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            // DrawerHeader for branding or user info
-            const DrawerHeader(
-              decoration: BoxDecoration(color: Colors.blue), // Blue background for header
-              child: Align(
-                alignment: Alignment.bottomLeft,
-                child: Text(
-                  "Pi Academy", // Could be app name or a user's name
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.home, color: Colors.black), // Icon black for contrast on white drawer background
-              title: const Text("Home", style: TextStyle(color: Colors.black)), // Text black for contrast
-              onTap: () => Navigator.pop(context),
-            ),
-            ListTile(
-              leading: const Icon(Icons.support_agent, color: Colors.black), // Icon black for contrast
-              title: const Text("Support", style: TextStyle(color: Colors.black)), // Text black for contrast
-              onTap: () => Navigator.pop(context),
-            ),
-            // Add more ListTile items for other menu options here
-          ],
-        ),
-      ),
-      body: Container(
-        decoration: const BoxDecoration(
-          // Main background gradient is blue
-          gradient: LinearGradient(
-            colors: [Color(0xFF1A237E), Color(0xFF2196F3)], // Darker to lighter blue
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+      appBar: AppBar(
+        title: const Text("Pi Academy"),
+        backgroundColor: Colors.blue[900],
+        foregroundColor: Colors.white,
+        elevation: 4,
+        actions: [
+          PopupMenuButton<String>(
+            onSelected: (String result) {
+              setState(() {
+                selectedLanguage = result;
+              });
+            },
+            itemBuilder: (BuildContext context) => languages
+                .map((String lang) => PopupMenuItem<String>(
+              value: lang,
+              child: Text(lang),
+            ))
+                .toList(),
+            icon: const Icon(Icons.language, color: Colors.white),
           ),
-        ),
-        child: SafeArea( // No longer needs a SizedBox(height: 20) at the top
-          child: Column(
-            children: [
+          IconButton(
+            icon: const Icon(Icons.search, color: Colors.white),
+            onPressed: () {},
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            const SizedBox(height: 16),
 
-              // The logo and title previously here are now in the AppBar
-              // So, you can remove this section:
-              /*
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+            // 1. POSTER SECTION
+            const PosterSection(),
+
+            const SizedBox(height: 24),
+
+            // 2. SQUARED BUTTONS SECTION
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  childAspectRatio: 1.0,
+                ),
+                itemCount: gridButtons.length,
+                itemBuilder: (context, index) {
+                  final button = gridButtons[index];
+                  return Card(
+                    elevation: 4,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    color: Colors.white,
+                    child: InkWell(
+                      onTap: () {
+                        if (button['targetScreen'] != null) {
+                          // Execute the builder function to get the widget
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: button['targetScreen'] as WidgetBuilder,
+                            ),
+                          );
+                        } else {
+                          print("${button['text']} feature not implemented yet");
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Image.asset(
+                            button['iconPath'],
+                            width: 60,
+                            height: 60,
+                            errorBuilder: (context, error, stackTrace) {
+                              return const Icon(Icons.error, size: 40, color: Colors.red);
+                            },
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            button['text'],
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // 3. MORE CONTENT LIST
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Image.asset(
-                    "assets/images/logo.png",
-                    height: 45,
-                    semanticLabel: 'Pi Academy logo', // Added semantic label for accessibility
-                  ),
-                  const SizedBox(width: 10),
-                  const Text(
-                    "Pi Academy",
+                  Text(
+                    "More Content Coming Soon:",
                     style: TextStyle(
-                      color: Colors.white, // Text remains white for contrast on blue background
-                      fontSize: 34,
+                      fontSize: 20,
                       fontWeight: FontWeight.bold,
+                      color: Colors.blue[900],
                     ),
                   ),
+                  const SizedBox(height: 12),
+                  // Using List.generate is often cleaner than a for-loop inside children
+                  ...List.generate(8, (index) => Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.info_outline, color: Colors.blueGrey, size: 24),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            "Placeholder item ${index + 1} for articles, updates, etc.",
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  ),
+                  const SizedBox(height: 20),
                 ],
               ),
-              const SizedBox(height: 20),
-              */
-
-              // Grid Section (Square Buttons)
-              Expanded(
-                child: GridView.count(
-                  padding: const EdgeInsets.all(20),
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 20,
-                  mainAxisSpacing: 20,
-                  children: [
-                    buildSquareButton(
-                      context,
-                      "Syllabus",
-                      "assets/images/syllabus.png",
-                          () {},
-                    ),
-                    buildSquareButton(
-                      context,
-                      "Mock Tests",
-                      "assets/images/test.png",
-                          () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const ExamScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                    buildSquareButton(
-                      context,
-                      "Notes",
-                      "assets/images/notes.png",
-                          () {},
-                    ),
-                    buildSquareButton(
-                      context,
-                      "Results",
-                      "assets/images/result.png",
-                          () {},
-                    ),
-                  ],
-                ),
-              ),
-
-              // 🔥 AUTO SCROLLING POSTERS
-              const SizedBox(height: 10),
-
-              SizedBox(
-                height: 160,
-                child: PageView.builder(
-                  controller: _pageController,
-                  itemCount: posters.length,
-                  itemBuilder: (context, index) {
-                    return GestureDetector(
-                      onTap: openYoutube,
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 8),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Colors.black26,
-                              blurRadius: 8,
-                              offset: Offset(0, 5),
-                            ),
-                          ],
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(20),
-                          child: Image.asset(
-                            posters[index],
-                            fit: BoxFit.cover,
-                            semanticLabel: 'Promotional poster ${index + 1}', // Added semantic label
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-
-              const SizedBox(height: 20),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // Helper method to build consistent square buttons
-  Widget buildSquareButton(
-      BuildContext context,
-      String title,
-      String imagePath,
-      VoidCallback onTap,
-      ) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white, // Button background color is white
-          // Reverted borderRadius to 20 for rounded rectangles, adjust if you want circular
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: const [
-            BoxShadow(
-              color: Colors.black26,
-              blurRadius: 10,
-              offset: Offset(0, 5),
-            )
+            ),
           ],
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+      ),
+      bottomNavigationBar: BottomAppBar(
+        color: Colors.blue[900],
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            Image.asset(
-              imagePath,
-              height: 65,
-              semanticLabel: '$title icon', // Added semantic label based on button title
+            IconButton(
+              icon: const Icon(Icons.home, color: Colors.white),
+              onPressed: () {},
             ),
-            const SizedBox(height: 20),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.black, // Text inside button is black
-              ),
+            IconButton(
+              icon: const Icon(Icons.school, color: Colors.white),
+              onPressed: () {},
+            ),
+            IconButton(
+              icon: const Icon(Icons.notifications, color: Colors.white),
+              onPressed: () {},
+            ),
+            IconButton(
+              icon: const Icon(Icons.person, color: Colors.white),
+              onPressed: () {},
             ),
           ],
         ),
