@@ -53,7 +53,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> openYoutube() async {
     //!! IMPORTANT: Replace "@YOUR_CHANNEL" with your actual YouTube channel URL!!
-    final Uri url = Uri.parse("https://youtube.com/@YOUR_CHANNEL");
+    final Uri url = Uri.parse("https://youtube.com/@Piacademy9");
     if (await canLaunchUrl(url)) { // Added check if URL can be launched
       await launchUrl(url, mode: LaunchMode.externalApplication);
     } else {
@@ -65,6 +65,30 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar( // <--- MODIFIED AppBar HERE
+        backgroundColor: Colors.blue[900], // Changed to a dark blue!
+        elevation: 0, // No shadow
+        centerTitle: false, // Align title to the left
+        title: Row( // Row for logo and text
+          children: [
+            Image.asset(
+              "assets/images/logo.png",
+              height: 30, // Adjust logo size for AppBar
+              semanticLabel: 'Pi Academy logo',
+            ),
+            const SizedBox(width: 8),
+            const Text(
+              "Pi Academy",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 22, // Adjust font size for AppBar
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        iconTheme: const IconThemeData(color: Colors.white), // Set hamburger icon color to white
+      ),
       drawer: Drawer(
         child: ListView(
           padding: EdgeInsets.zero,
@@ -107,13 +131,14 @@ class _HomeScreenState extends State<HomeScreen> {
             end: Alignment.bottomRight,
           ),
         ),
-        child: SafeArea(
+        child: SafeArea( // No longer needs a SizedBox(height: 20) at the top
           child: Column(
             children: [
 
+              // The logo and title previously here are now in the AppBar
+              // So, you can remove this section:
+              /*
               const SizedBox(height: 20),
-
-              // Logo + Title (at the top of the main screen)
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -133,8 +158,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ],
               ),
-
               const SizedBox(height: 20),
+              */
 
               // Grid Section (Square Buttons)
               Expanded(

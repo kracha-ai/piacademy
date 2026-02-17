@@ -28,7 +28,8 @@ class SubjectScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text("$examName - $topicName"),
-        backgroundColor: Colors.red,
+        backgroundColor: Colors.blue[900],
+        foregroundColor: Colors.white,
       ),
       body: ListView.builder(
         padding: const EdgeInsets.all(16),

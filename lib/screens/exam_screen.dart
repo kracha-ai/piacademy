@@ -26,7 +26,8 @@ class ExamScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Select Exam"),
-        backgroundColor: Colors.red,
+        backgroundColor: Colors.blue[900],
+        foregroundColor: Colors.white, // <--- ADDED THIS LINE!
       ),
       body: ListView.builder(
         padding: const EdgeInsets.all(16),

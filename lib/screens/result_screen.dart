@@ -40,7 +40,8 @@ class ResultScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Results"), // Changed from "Result" to "Results" for consistency
-        backgroundColor: Colors.red,
+        backgroundColor: Colors.blue[900],
+        foregroundColor: Colors.white,
         automaticallyImplyLeading: false, // Prevents going back to the test accidentally
       ),
       body: Padding(
@@ -202,7 +203,7 @@ class ResultScreen extends StatelessWidget {
             Center( // Center the button
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
+                  backgroundColor: Colors.blue, // Changed to blue
                   padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15), // Make button larger
                 ),
                 onPressed: () {
@@ -211,7 +212,10 @@ class ResultScreen extends StatelessWidget {
                 },
                 child: const Text(
                   "Go to Home", // More descriptive text
-                  style: TextStyle(fontSize: 18),
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: Colors.white, // Changed text color to white
+                  ),
                 ),
               ),
             ),

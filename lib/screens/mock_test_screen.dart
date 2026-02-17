@@ -203,7 +203,8 @@ class _MockTestScreenState extends State<MockTestScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.red,
+        backgroundColor: Colors.blue[900],
+        foregroundColor: Colors.white,
         title: Text("${widget.subject} Test"),
         actions: [
           // Timer display in AppBar
@@ -319,7 +320,7 @@ class _MockTestScreenState extends State<MockTestScreen> {
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                               color: isSelected
-                                  ? Colors.black87
+                                  ? Colors.blue
                                   : Colors.grey.shade300,
                               width: 2,
                             ),
@@ -374,14 +375,17 @@ class _MockTestScreenState extends State<MockTestScreen> {
                             _startQuestionTimer(); // Start timer for new current question
                           });
                         },
-                        child: const Text("Previous"),
+                        child: const Text( // <--- MODIFIED HERE for "Previous"
+                          "Previous",
+                          style: TextStyle(color: Colors.white), // Set text color to white
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
+                          backgroundColor: Colors.blueAccent,
                         ),
                         // onPressed: selectedAnswerIndex == null // REMOVED condition
                         onPressed: () { // Always enabled for navigation
@@ -422,10 +426,11 @@ class _MockTestScreenState extends State<MockTestScreen> {
                             );
                           }
                         },
-                        child: Text(
+                        child: Text( // <--- MODIFIED HERE for "Next" / "Submit Test"
                           currentQuestionIndex == questions.length - 1
                               ? "Submit Test"
                               : "Next",
+                          style: const TextStyle(color: Colors.white), // Set text color to white
                         ),
                       ),
                     ),
@@ -505,7 +510,7 @@ class _MockTestScreenState extends State<MockTestScreen> {
               child: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: const BoxDecoration(
-                  color: Colors.red,
+                  color: Colors.blueAccent,
                   borderRadius: BorderRadius.only(
                     topRight: Radius.circular(10),
                     bottomRight: Radius.circular(10),

@@ -57,7 +57,8 @@ class _TestListScreenState extends State<TestListScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text("${widget.subject} Tests"),
-        backgroundColor: Colors.red,
+        backgroundColor: Colors.blue[900],
+        foregroundColor: Colors.white,
       ),
       body: testFiles.isEmpty
           ? const Center(child: Text("No Tests Available"))
