@@ -13,6 +13,7 @@ class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
 
   late AnimationController _controller;
+  late Animation<double> _fadeAnimation; // Single animation for both logo and text
   final String text = "Pi Academy";
 
   @override
@@ -22,7 +23,18 @@ class _SplashScreenState extends State<SplashScreen>
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 4),
-    )..forward();
+    );
+
+    // Define a single fade animation for both logo and text,
+    // making them appear together during the first half of the total duration.
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.0, 0.5, curve: Curves.easeIn), // Both fade in during the first half
+      ),
+    );
+
+    _controller.forward();
 
     _controller.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
@@ -66,49 +78,36 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.red,
+      backgroundColor: Colors.blue,
       body: SizedBox.expand(
         child: AnimatedBuilder(
           animation: _controller,
           builder: (context, child) {
-            double logoProgress = Curves.easeOutCubic.transform(_controller.value);
-            double radius = 250 * pow(1 - logoProgress, 2).toDouble();
-            double angle = logoProgress * 4 * pi;
-            double x = radius * cos(angle);
-            double y = radius * sin(angle);
-            const double logoSettledThreshold = 0.8;
-            double textProgress = 0.0;
-            if (logoProgress >= logoSettledThreshold) {
-              textProgress = (logoProgress - logoSettledThreshold) / (1.0 - logoSettledThreshold);
-            }
-            textProgress = textProgress.clamp(0.0, 1.0);
-
             return Stack(
               alignment: Alignment.center,
               children: [
-                Transform.translate(
-                  offset: Offset(x, y),
-                  child: Opacity(
-                    opacity: logoProgress,
-                    child: Image.asset(
-                      'assets/images/logo.png',
-                      width: 130,
-                    ),
+                // Logo - centered and fading in with the shared animation
+                Opacity(
+                  opacity: _fadeAnimation.value,
+                  child: Image.asset(
+                    'assets/images/logo.png',
+                    width: 130,
                   ),
                 ),
+                // Text - centered below logo and fading in with the shared animation
                 Align(
                   alignment: Alignment.center,
                   child: Padding(
-                    padding: const EdgeInsets.only(top: 180.0),
+                    padding: const EdgeInsets.only(top: 180.0), // Keep your original padding for vertical alignment
                     child: Opacity(
-                      opacity: textProgress,
+                      opacity: _fadeAnimation.value,
                       child: Text(
                         text,
                         style: const TextStyle(
                           fontSize: 30,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 2,
-                          color: Colors.black,
+                          color: Colors.white,
                         ),
                       ),
                     ),

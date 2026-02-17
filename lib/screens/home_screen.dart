@@ -52,8 +52,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> openYoutube() async {
+    //!! IMPORTANT: Replace "@YOUR_CHANNEL" with your actual YouTube channel URL!!
     final Uri url = Uri.parse("https://youtube.com/@YOUR_CHANNEL");
-    await launchUrl(url, mode: LaunchMode.externalApplication);
+    if (await canLaunchUrl(url)) { // Added check if URL can be launched
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } else {
+      // You could show a SnackBar or AlertDialog here if the URL can't be launched
+      print('Could not launch $url');
+    }
   }
 
   @override
@@ -63,12 +69,13 @@ class _HomeScreenState extends State<HomeScreen> {
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
+            // DrawerHeader for branding or user info
             const DrawerHeader(
-              decoration: BoxDecoration(color: Colors.red),
+              decoration: BoxDecoration(color: Colors.blue), // Blue background for header
               child: Align(
                 alignment: Alignment.bottomLeft,
                 child: Text(
-                  "Pi Academy",
+                  "Pi Academy", // Could be app name or a user's name
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 24,
@@ -78,22 +85,24 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             ListTile(
-              leading: const Icon(Icons.home),
-              title: const Text("Home"),
+              leading: const Icon(Icons.home, color: Colors.black), // Icon black for contrast on white drawer background
+              title: const Text("Home", style: TextStyle(color: Colors.black)), // Text black for contrast
               onTap: () => Navigator.pop(context),
             ),
             ListTile(
-              leading: const Icon(Icons.support_agent),
-              title: const Text("Support"),
+              leading: const Icon(Icons.support_agent, color: Colors.black), // Icon black for contrast
+              title: const Text("Support", style: TextStyle(color: Colors.black)), // Text black for contrast
               onTap: () => Navigator.pop(context),
             ),
+            // Add more ListTile items for other menu options here
           ],
         ),
       ),
       body: Container(
         decoration: const BoxDecoration(
+          // Main background gradient is blue
           gradient: LinearGradient(
-            colors: [Color(0xFFB71C1C), Color(0xFFE53935)],
+            colors: [Color(0xFF1A237E), Color(0xFF2196F3)], // Darker to lighter blue
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -104,16 +113,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
               const SizedBox(height: 20),
 
-              // Logo + Title
+              // Logo + Title (at the top of the main screen)
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Image.asset("assets/images/logo.png", height: 45),
+                  Image.asset(
+                    "assets/images/logo.png",
+                    height: 45,
+                    semanticLabel: 'Pi Academy logo', // Added semantic label for accessibility
+                  ),
                   const SizedBox(width: 10),
                   const Text(
                     "Pi Academy",
                     style: TextStyle(
-                      color: Colors.white,
+                      color: Colors.white, // Text remains white for contrast on blue background
                       fontSize: 34,
                       fontWeight: FontWeight.bold,
                     ),
@@ -123,7 +136,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
               const SizedBox(height: 20),
 
-              // Grid Section
+              // Grid Section (Square Buttons)
               Expanded(
                 child: GridView.count(
                   padding: const EdgeInsets.all(20),
@@ -131,14 +144,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisSpacing: 20,
                   mainAxisSpacing: 20,
                   children: [
-
                     buildSquareButton(
                       context,
                       "Syllabus",
                       "assets/images/syllabus.png",
                           () {},
                     ),
-
                     buildSquareButton(
                       context,
                       "Mock Tests",
@@ -152,14 +163,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         );
                       },
                     ),
-
                     buildSquareButton(
                       context,
                       "Notes",
                       "assets/images/notes.png",
                           () {},
                     ),
-
                     buildSquareButton(
                       context,
                       "Results",
@@ -198,6 +207,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: Image.asset(
                             posters[index],
                             fit: BoxFit.cover,
+                            semanticLabel: 'Promotional poster ${index + 1}', // Added semantic label
                           ),
                         ),
                       ),
@@ -214,6 +224,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // Helper method to build consistent square buttons
   Widget buildSquareButton(
       BuildContext context,
       String title,
@@ -224,7 +235,8 @@ class _HomeScreenState extends State<HomeScreen> {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Colors.white, // Button background color is white
+          // Reverted borderRadius to 20 for rounded rectangles, adjust if you want circular
           borderRadius: BorderRadius.circular(20),
           boxShadow: const [
             BoxShadow(
@@ -237,14 +249,18 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset(imagePath, height: 75),
+            Image.asset(
+              imagePath,
+              height: 65,
+              semanticLabel: '$title icon', // Added semantic label based on button title
+            ),
             const SizedBox(height: 20),
             Text(
               title,
               style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: Colors.red,
+                color: Colors.black, // Text inside button is black
               ),
             ),
           ],
