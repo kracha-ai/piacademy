@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:provider/provider.dart'; // Import provider
 import 'exam_screen.dart'; // Make sure this file exists
+import '../services/theme_notifier.dart'; // Import your ThemeNotifier
 
 // --- POSTER SECTION ---
 class PosterSection extends StatefulWidget {
@@ -43,11 +45,13 @@ class _PosterSectionState extends State<PosterSection> {
               posterPaths[index],
               fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) {
+                // Adjust error background color based on theme
                 return Container(
-                  color: Colors.grey.shade300,
-                  child: const Center(
-                    child: Icon(Icons.broken_image, color: Colors.grey, size: 50),
-                  ),
+                  color: Theme.of(context).brightness == Brightness.light
+                      ? Colors.grey.shade300
+                      : Colors.grey.shade700,
+                  child: Icon(Icons.broken_image,
+                      color: Theme.of(context).iconTheme.color, size: 50),
                 );
               },
             ),
@@ -76,11 +80,10 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final List<String> languages = ["English", "తెలుగు"];
-  String selectedLanguage = "English";
+  // REMOVED: bool _isDarkTheme local state, it's now managed globally by ThemeNotifier
 
-  // FIXED: Removed 'const' and changed 'targetScreen' to a Function (WidgetBuilder)
-  // This prevents the error and ensures the screen is built fresh on navigation.
+  // REMOVED: _toggleTheme local method
+
   final List<Map<String, dynamic>> gridButtons = [
     {
       'text': 'Mock Tests',
@@ -106,31 +109,39 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Get the ThemeNotifier instance
+    final themeNotifier = Provider.of<ThemeNotifier>(context);
+    // Determine if the current theme mode is dark
+    final isDarkTheme = themeNotifier.themeMode == ThemeMode.dark;
+
     return Scaffold(
+      // The background color will now be controlled by MaterialApp's theme/darkTheme
       appBar: AppBar(
         title: const Text("Pi Academy"),
-        backgroundColor: Colors.blue[900],
-        foregroundColor: Colors.white,
+        // backgroundColor and foregroundColor will come from MaterialApp's AppBarTheme
+        // REMOVED: hardcoded Colors.blue[900] and Colors.white
         elevation: 4,
         actions: [
-          PopupMenuButton<String>(
-            onSelected: (String result) {
-              setState(() {
-                selectedLanguage = result;
-              });
-            },
-            itemBuilder: (BuildContext context) => languages
-                .map((String lang) => PopupMenuItem<String>(
-              value: lang,
-              child: Text(lang),
-            ))
-                .toList(),
-            icon: const Icon(Icons.language, color: Colors.white),
+          // Theme Shifting Widget
+          Row(
+            children: [
+              Icon(
+                isDarkTheme? Icons.dark_mode : Icons.light_mode,
+                color: Theme.of(context).appBarTheme.foregroundColor, // Use theme's foreground color
+              ),
+              Switch(
+                value: isDarkTheme, // Use the state from ThemeNotifier
+                onChanged: (value) {
+                  themeNotifier.toggleTheme(); // Call the global toggle method
+                },
+                activeColor: Theme.of(context).appBarTheme.foregroundColor, // Use theme's foreground color
+                inactiveThumbColor: Theme.of(context).appBarTheme.foregroundColor, // Use theme's foreground color
+                inactiveTrackColor: Theme.of(context).appBarTheme.foregroundColor?.withOpacity(0.5)?? Colors.white.withOpacity(0.5), // Fallback for null safety
+              ),
+              const SizedBox(width: 8), // Small spacing
+            ],
           ),
-          IconButton(
-            icon: const Icon(Icons.search, color: Colors.white),
-            onPressed: () {},
-          ),
+          // Search button removed - it's already gone from the previous AppBar code
         ],
       ),
       body: SingleChildScrollView(
@@ -163,11 +174,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    color: Colors.white,
+                    color: Theme.of(context).cardColor, // Use theme's card color
                     child: InkWell(
                       onTap: () {
-                        if (button['targetScreen'] != null) {
-                          // Execute the builder function to get the widget
+                        if (button['targetScreen']!= null) {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -187,17 +197,22 @@ class _HomeScreenState extends State<HomeScreen> {
                             width: 60,
                             height: 60,
                             errorBuilder: (context, error, stackTrace) {
-                              return const Icon(Icons.error, size: 40, color: Colors.red);
+                              return Icon(Icons.error,
+                                  size: 40,
+                                  color: Theme.of(context).colorScheme.error); // Use theme's error color
                             },
                           ),
                           const SizedBox(height: 8),
                           Text(
                             button['text'],
                             textAlign: TextAlign.center,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
-                              color: Colors.black87,
+                              color: Theme.of(context)
+                                  .textTheme
+                                  .bodyLarge
+                                  ?.color, // Use theme's default text color
                             ),
                           ),
                         ],
@@ -220,64 +235,93 @@ class _HomeScreenState extends State<HomeScreen> {
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: Colors.blue[900],
+                      // Dynamically pick color based on current brightness
+                      color: Theme.of(context).brightness == Brightness.light
+                          ? Colors.blue.shade900
+                          : Colors.blue.shade300,
                     ),
                   ),
                   const SizedBox(height: 12),
-                  // Using List.generate is often cleaner than a for-loop inside children
-                  ...List.generate(8, (index) => Container(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.info_outline, color: Colors.blueGrey, size: 24),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            "Placeholder item ${index + 1} for articles, updates, etc.",
-                            style: const TextStyle(fontSize: 16),
-                          ),
+                  ...List.generate(
+                    8,
+                        (index) => Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        // Dynamic background color for list items
+                        color: Theme.of(context).brightness == Brightness.light
+                            ? Colors.grey.shade100
+                            : Colors.grey.shade700,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          // Dynamic border color
+                          color: Theme.of(context).brightness == Brightness.light
+                              ? Colors.grey.shade300
+                              : Colors.grey.shade600,
                         ),
-                      ],
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            // Dynamic icon color
+                            color: Theme.of(context).brightness == Brightness.light
+                                ? Colors.blueGrey
+                                : Colors.blueGrey.shade300,
+                            size: 24,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              "Placeholder item ${index + 1} for articles, updates, etc.",
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.color, // This is fine as bodyMedium?.color is Color? and handles null
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
                   ),
                   const SizedBox(height: 20),
                 ],
               ),
             ),
-          ],
-        ),
-      ),
+          ], // This is the closing ']' for the Column's children list
+        ), // This is the closing ')' for the Column widget
+      ), // This is the closing ')' for the SingleChildScrollView widget
       bottomNavigationBar: BottomAppBar(
-        color: Colors.blue[900],
+        color: Theme.of(context).appBarTheme.backgroundColor, // Use theme's AppBar background color
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
             IconButton(
-              icon: const Icon(Icons.home, color: Colors.white),
+              icon: Icon(Icons.home,
+                  color: Theme.of(context).appBarTheme.foregroundColor), // Use theme's foreground color
               onPressed: () {},
             ),
             IconButton(
-              icon: const Icon(Icons.school, color: Colors.white),
+              icon: Icon(Icons.school,
+                  color: Theme.of(context).appBarTheme.foregroundColor), // Use theme's foreground color
               onPressed: () {},
             ),
             IconButton(
-              icon: const Icon(Icons.notifications, color: Colors.white),
+              icon: Icon(Icons.notifications,
+                  color: Theme.of(context).appBarTheme.foregroundColor), // Use theme's foreground color
               onPressed: () {},
             ),
             IconButton(
-              icon: const Icon(Icons.person, color: Colors.white),
+              icon: Icon(Icons.person,
+                  color: Theme.of(context).appBarTheme.foregroundColor), // Use theme's foreground color
               onPressed: () {},
             ),
           ],
         ),
       ),
-    );
+    ); // This is the closing ')' for the Scaffold widget
   }
 }
