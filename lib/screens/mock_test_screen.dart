@@ -1,6 +1,8 @@
 import 'dart:async'; // Import for Timer
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart'; // Add provider import
+import '../services/theme_notifier.dart'; // Add theme_notifier import
 import 'result_screen.dart';
 import '../models/question.dart';
 
@@ -78,9 +80,11 @@ class _MockTestScreenState extends State<MockTestScreen> {
       _startQuestionTimer(); // Start timer for the first question
 
     } catch (e) {
+      // It's good that you're printing the error, consider showing a user-friendly message
       print("Error loading questions: $e");
       setState(() {
         isLoading = false;
+        // Optionally, show a dialog or an error message on the screen
       });
     }
   }
@@ -184,27 +188,43 @@ class _MockTestScreenState extends State<MockTestScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeNotifier = Provider.of<ThemeNotifier>(context);
+    final isDarkTheme = themeNotifier.themeMode == ThemeMode.dark;
+
+    // Define theme-aware colors
+    final Color primaryTextColor = isDarkTheme? Colors.white : Colors.black87;
+    final Color secondaryTextColor = isDarkTheme? Colors.grey.shade400 : Colors.grey.shade700;
+    final Color questionContainerColor = isDarkTheme? Colors.grey.shade800 : Colors.white; // Unused for now, but good to have
+    final Color borderColor = isDarkTheme? Colors.grey.shade600 : Colors.grey.shade300;
+    final Color selectedBorderColor = Theme.of(context).primaryColor;
+    final Color correctHighlightColor = Colors.green.shade700; // Constant green, can be made theme-aware if needed
+    final Color incorrectHighlightColor = Colors.red.shade700; // Constant red, can be made theme-aware if needed
+    final Color answeredColor = isDarkTheme? Colors.green.shade700 : Colors.green;
+    final Color currentQuestionColor = Theme.of(context).primaryColor;
+    final Color unselectedAnswerColor = isDarkTheme? Colors.grey.shade800 : Colors.white;
+    final Color navigatorPanelColor = isDarkTheme? Colors.grey.shade900 : Colors.white;
+
     if (isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+      return Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor, // Theme-aware background
+        body: Center(child: CircularProgressIndicator(color: Theme.of(context).primaryColor)), // Theme-aware indicator
       );
     }
 
     if (questions.isEmpty) {
       return Scaffold(
         appBar: AppBar(title: const Text("Mock Test")),
-        body: const Center(child: Text("No Questions Available")),
+        body: Center(child: Text("No Questions Available. Check asset paths or JSON.", style: TextStyle(color: primaryTextColor))),
       );
     }
 
     final currentQuestion = questions[currentQuestionIndex];
     const double navigatorPanelWidth = 250.0;
-    const double toggleButtonTopPosition = 550.0;
+    const double toggleButtonTopPosition = 550.0; // Keep fixed for now
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.blue[900],
-        foregroundColor: Colors.white,
+        // Colors from MaterialApp's AppBarTheme
         title: Text("${widget.subject} Test"),
         actions: [
           // Timer display in AppBar
@@ -213,8 +233,8 @@ class _MockTestScreenState extends State<MockTestScreen> {
             child: Center(
               child: Text(
                 _formatDuration(_totalElapsed), // Total time
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle( // Make Text style theme-aware
+                  color: Theme.of(context).appBarTheme.foregroundColor,
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
                 ),
@@ -229,8 +249,8 @@ class _MockTestScreenState extends State<MockTestScreen> {
             },
             child: Text(
               selectedLanguage == "en"? "తెలుగు" : "English",
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle( // Make Text style theme-aware
+                color: Theme.of(context).appBarTheme.foregroundColor,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -251,15 +271,16 @@ class _MockTestScreenState extends State<MockTestScreen> {
                   children: [
                     Text(
                       "Question ${currentQuestionIndex + 1} of ${questions.length}",
-                      style: const TextStyle(
+                      style: TextStyle( // Make Text style theme-aware
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
+                        color: primaryTextColor,
                       ),
                     ),
                     // Timer for current question
                     Text(
                       "Q-Time: ${_formatDuration(_currentQuestionElapsed)}",
-                      style: const TextStyle(
+                      style: const TextStyle( // Keep red as a constant for urgency
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
                         color: Colors.red,
@@ -273,7 +294,7 @@ class _MockTestScreenState extends State<MockTestScreen> {
                   selectedLanguage == "en"
                       ? currentQuestion.questionEn
                       : currentQuestion.questionTe,
-                  style: const TextStyle(fontSize: 18),
+                  style: TextStyle(fontSize: 18, color: primaryTextColor), // Make Text style theme-aware
                 ),
                 const SizedBox(height: 8),
                 if (currentQuestion.askedIn.trim().isNotEmpty)
@@ -281,14 +302,15 @@ class _MockTestScreenState extends State<MockTestScreen> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.yellow.shade100,
+                      color: isDarkTheme? Colors.yellow.shade700 : Colors.yellow.shade100, // Make theme-aware
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
                       "Asked in: ${currentQuestion.askedIn}",
-                      style: const TextStyle(
+                      style: TextStyle( // Make Text style theme-aware
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
+                        color: isDarkTheme? Colors.white : Colors.black87,
                       ),
                     ),
                   ),
@@ -299,9 +321,10 @@ class _MockTestScreenState extends State<MockTestScreen> {
                     itemBuilder: (context, index) {
                       List<String> labels = ["A", "B", "C", "D"];
 
-                      if (selectedAnswerIndex == null && userAnswers[currentQuestionIndex]!= null) {
-                        selectedAnswerIndex = userAnswers[currentQuestionIndex];
-                      }
+                      // Reset selectedAnswerIndex if user has already answered this question
+                      // and then navigate back. This ensures the correct answer is shown
+                      // when re-visiting a question.
+                      selectedAnswerIndex = userAnswers[currentQuestionIndex];
 
                       bool isSelected = (selectedAnswerIndex == index);
 
@@ -316,12 +339,12 @@ class _MockTestScreenState extends State<MockTestScreen> {
                           margin: const EdgeInsets.only(bottom: 12),
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: isSelected? selectedBorderColor.withOpacity(0.1) : unselectedAnswerColor, // Make theme-aware
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                               color: isSelected
-                                  ? Colors.blue
-                                  : Colors.grey.shade300,
+                                  ? selectedBorderColor // Theme primary color
+                                  : borderColor, // Theme-aware border
                               width: 2,
                             ),
                           ),
@@ -330,11 +353,12 @@ class _MockTestScreenState extends State<MockTestScreen> {
                             children: [
                               Text(
                                 "${labels[index]}. ",
-                                style: TextStyle(
+                                style: TextStyle( // Make Text style theme-aware
                                   fontWeight: isSelected
                                       ? FontWeight.bold
                                       : FontWeight.normal,
                                   fontSize: 16,
+                                  color: primaryTextColor,
                                 ),
                               ),
                               Expanded(
@@ -342,11 +366,12 @@ class _MockTestScreenState extends State<MockTestScreen> {
                                   selectedLanguage == "en"
                                       ? currentQuestion.optionsEn[index]
                                       : currentQuestion.optionsTe[index],
-                                  style: TextStyle(
+                                  style: TextStyle( // Make Text style theme-aware
                                     fontSize: 16,
                                     fontWeight: isSelected
                                         ? FontWeight.bold
                                         : FontWeight.normal,
+                                    color: primaryTextColor,
                                   ),
                                 ),
                               ),
@@ -363,7 +388,8 @@ class _MockTestScreenState extends State<MockTestScreen> {
                     Expanded(
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.grey,
+                          backgroundColor: isDarkTheme? Colors.grey.shade700 : Colors.grey.shade400, // Make theme-aware grey
+                          foregroundColor: primaryTextColor, // Make text color theme-aware
                         ),
                         onPressed: currentQuestionIndex == 0
                             ? null
@@ -375,22 +401,17 @@ class _MockTestScreenState extends State<MockTestScreen> {
                             _startQuestionTimer(); // Start timer for new current question
                           });
                         },
-                        child: const Text( // <--- MODIFIED HERE for "Previous"
-                          "Previous",
-                          style: TextStyle(color: Colors.white), // Set text color to white
-                        ),
+                        child: const Text("Previous"), // Text color already handled by foregroundColor
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blueAccent,
+                          backgroundColor: Theme.of(context).primaryColor, // Use theme primary color
+                          foregroundColor: Colors.white, // Keep white for contrast on primary color
                         ),
-                        // onPressed: selectedAnswerIndex == null // REMOVED condition
                         onPressed: () { // Always enabled for navigation
-                          // userAnswers[currentQuestionIndex] = selectedAnswerIndex; // Answer saved on selection now
-
                           _stopAndSaveQuestionTime(); // Save time for current question
 
                           if (currentQuestionIndex < questions.length - 1) {
@@ -415,6 +436,9 @@ class _MockTestScreenState extends State<MockTestScreen> {
                               context,
                               MaterialPageRoute(
                                 builder: (context) => ResultScreen(
+                                  exam: widget.exam, // Pass exam name
+                                  topic: widget.topic, // Pass topic name
+                                  subject: widget.subject, // Pass subject name
                                   score: score,
                                   total: questions.length,
                                   questions: questions,
@@ -449,7 +473,7 @@ class _MockTestScreenState extends State<MockTestScreen> {
             bottom: 0,
             width: navigatorPanelWidth,
             child: Container(
-              color: Colors.white,
+              color: navigatorPanelColor, // Make theme-aware
               child: GridView.builder(
                 padding: const EdgeInsets.all(10),
                 gridDelegate:
@@ -477,17 +501,17 @@ class _MockTestScreenState extends State<MockTestScreen> {
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: isCurrent
-                            ? Colors.blue
+                            ? currentQuestionColor // Theme primary color
                             : isAnswered
-                            ? Colors.green
-                            : Colors.grey.shade300,
+                            ? answeredColor // Theme-aware green
+                            : isDarkTheme? Colors.grey.shade800 : Colors.grey.shade300, // Theme-aware grey
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
                         "${index + 1}",
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: (isCurrent || isAnswered)? Colors.white : Colors.black,
+                          color: (isCurrent || isAnswered)? Colors.white : primaryTextColor, // Make text color theme-aware
                         ),
                       ),
                     ),
@@ -509,16 +533,16 @@ class _MockTestScreenState extends State<MockTestScreen> {
               },
               child: Container(
                 padding: const EdgeInsets.all(8),
-                decoration: const BoxDecoration(
-                  color: Colors.blueAccent,
-                  borderRadius: BorderRadius.only(
+                decoration: BoxDecoration( // Make theme-aware
+                  color: Theme.of(context).primaryColor, // Use theme primary color
+                  borderRadius: const BorderRadius.only(
                     topRight: Radius.circular(10),
                     bottomRight: Radius.circular(10),
                   ),
                 ),
                 child: Icon(
                   showNavigator? Icons.arrow_back_ios : Icons.arrow_forward_ios,
-                  color: Colors.white,
+                  color: Theme.of(context).appBarTheme.foregroundColor, // Use theme-aware color
                   size: 18,
                 ),
               ),

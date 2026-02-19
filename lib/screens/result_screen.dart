@@ -1,29 +1,56 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../services/theme_notifier.dart';
 import '../models/question.dart';
+// import 'dart:math'; // Not strictly needed for this version
 
-class ResultScreen extends StatelessWidget {
+class ResultScreen extends StatefulWidget {
+  final String exam;
+  final String topic;
+  final String subject;
   final int score;
   final int total;
   final List<Question> questions;
   final List<int?> userAnswers;
-  // --- NEW: Add these fields to the ResultScreen's constructor ---
-  final Duration totalTime; // Total time spent on the test
-  final List<Duration> questionTimes; // Time spent on each question
-  // ---------------------------------------------------------------
+  final Duration totalTime;
+  final List<Duration> questionTimes;
 
   const ResultScreen({
     super.key,
+    required this.exam,
+    required this.topic,
+    required this.subject,
     required this.score,
     required this.total,
     required this.questions,
     required this.userAnswers,
-    // --- NEW: Require these fields in the constructor ---
     required this.totalTime,
     required this.questionTimes,
-    // ----------------------------------------------------
   });
 
-  // Helper to format duration for display (can be a top-level function if used in multiple places)
+  @override
+  State<ResultScreen> createState() => _ResultScreenState();
+}
+
+class _ResultScreenState extends State<ResultScreen> {
+  late String _displayLanguage; // "en" or "te"
+  String _selectedFilter = "All"; // Default filter option
+
+  // Options for the filter dropdown
+  final List<String> _filterOptions = [
+    "All",
+    "Incorrect",
+    "Unanswered",
+    "Correct",
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _displayLanguage = "en"; // Default to English for results review
+  }
+
+  // Helper to format duration for display (can be moved to a utility or kept here)
   String _formatDuration(Duration duration) {
     String twoDigits(int n) => n.toString().padLeft(2, "0");
     String minutes = twoDigits(duration.inMinutes.remainder(60));
@@ -35,192 +62,368 @@ class ResultScreen extends StatelessWidget {
     return "$minutes:$seconds";
   }
 
+  // Filter function to get the relevant questions based on _selectedFilter
+  List<int> _getFilteredQuestionIndices() {
+    List<int> filteredIndices = [];
+    for (int i = 0; i < widget.questions.length; i++) {
+      final question = widget.questions[i];
+      final userAnswerIndex = widget.userAnswers[i];
+      final bool isCorrect = userAnswerIndex == question.correctIndex;
+      final bool isAnswered = userAnswerIndex!= null;
+
+      if (_selectedFilter == "All") {
+        filteredIndices.add(i);
+      } else if (_selectedFilter == "Correct" && isCorrect) {
+        filteredIndices.add(i);
+      } else if (_selectedFilter == "Incorrect" &&!isCorrect && isAnswered) {
+        filteredIndices.add(i);
+      } else if (_selectedFilter == "Unanswered" &&!isAnswered) {
+        filteredIndices.add(i);
+      }
+    }
+    return filteredIndices;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final themeNotifier = Provider.of<ThemeNotifier>(context);
+    final isDarkTheme = themeNotifier.themeMode == ThemeMode.dark;
+
+    final Color primaryTextColor = isDarkTheme? Colors.white : Colors.black87;
+    final Color secondaryTextColor = isDarkTheme? Colors.grey.shade400 : Colors.grey.shade700;
+    final Color highlightColor = Theme.of(context).primaryColor;
+
+    final int correctCount = widget.score;
+    final int incorrectCount = widget.questions.where((q) => widget.userAnswers[widget.questions.indexOf(q)]!= null && widget.userAnswers[widget.questions.indexOf(q)]!= q.correctIndex).length;
+    final int unansweredCount = widget.total - correctCount - incorrectCount;
+    final double percentage = (widget.total > 0)? (widget.score / widget.total) * 100 : 0.0; // Prevent NaN
+    final Duration averageTimePerQuestion = Duration(milliseconds: widget.totalTime.inMilliseconds ~/ (widget.total > 0? widget.total : 1)); // Avoid division by zero
+
+    // Get the filtered list of question indices
+    final List<int> filteredQuestionIndices = _getFilteredQuestionIndices();
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Results"), // Changed from "Result" to "Results" for consistency
-        backgroundColor: Colors.blue[900],
-        foregroundColor: Colors.white,
-        automaticallyImplyLeading: false, // Prevents going back to the test accidentally
+        title: const Text("Test Results"),
+        actions: [
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _displayLanguage = _displayLanguage == "en"? "te" : "en";
+              });
+            },
+            child: Text(
+              _displayLanguage == "en"? "తెలుగు" : "English",
+              style: TextStyle(
+                color: Theme.of(context).appBarTheme.foregroundColor,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start, // Align content to start
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              "Your Score: $score / $total",
-              style: const TextStyle(
-                fontSize: 24, // Increased font size for score
-                fontWeight: FontWeight.bold,
+            // --- Summary Section ---
+            Card(
+              elevation: 4,
+              color: Theme.of(context).cardColor,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  children: [
+                    Text(
+                      "${widget.exam} - ${widget.topic} - ${widget.subject}",
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: primaryTextColor),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 15),
+                    Stack( // To place percentage on score
+                      alignment: Alignment.center,
+                      children: [
+                        SizedBox(
+                          width: 150,
+                          height: 150,
+                          child: CircularProgressIndicator(
+                            value: percentage / 100,
+                            strokeWidth: 10,
+                            backgroundColor: secondaryTextColor.withOpacity(0.3),
+                            valueColor: AlwaysStoppedAnimation<Color>(highlightColor),
+                          ),
+                        ),
+                        Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              "${widget.score} / ${widget.total}",
+                              style: TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.bold,
+                                color: primaryTextColor,
+                              ),
+                            ),
+                            Text(
+                              "${percentage.toStringAsFixed(0)}%",
+                              style: TextStyle(
+                                fontSize: 18,
+                                color: secondaryTextColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 15), // Adjusted spacing
+                    _buildSummaryRow("Correct:", correctCount.toString(), Colors.green, primaryTextColor),
+                    _buildSummaryRow("Incorrect:", incorrectCount.toString(), Colors.red, primaryTextColor),
+                    _buildSummaryRow("Unanswered:", unansweredCount.toString(), secondaryTextColor, primaryTextColor),
+                    const SizedBox(height: 10),
+                    _buildSummaryRow("Total Time:", _formatDuration(widget.totalTime), secondaryTextColor, primaryTextColor),
+                    _buildSummaryRow("Avg Time/Q:", _formatDuration(averageTimePerQuestion), secondaryTextColor, primaryTextColor),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 10),
-            // --- NEW: Display Total Time ---
-            Text(
-              "Total Test Time: ${_formatDuration(totalTime)}",
-              style: const TextStyle(
-                fontSize: 18,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-            // ---------------------------------
             const SizedBox(height: 20),
-            const Text(
-              "Detailed Performance:", // Added a new heading for clarity
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+
+            // --- Question Review Header with Filter ---
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  "Question Review:",
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: primaryTextColor),
+                ),
+                Container( // Make dropdown look like a button
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).cardColor,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: secondaryTextColor.withOpacity(0.5)),
+                  ),
+                  child: DropdownButtonHideUnderline( // Hide default underline
+                    child: DropdownButton<String>(
+                      value: _selectedFilter,
+                      icon: Icon(Icons.arrow_drop_down, color: primaryTextColor),
+                      dropdownColor: Theme.of(context).cardColor, // Ensure dropdown background is themed
+                      style: TextStyle(color: primaryTextColor, fontSize: 15), // Themed text style for selected value
+                      onChanged: (String? newValue) {
+                        setState(() {
+                          _selectedFilter = newValue!;
+                        });
+                      },
+                      items: _filterOptions.map<DropdownMenuItem<String>>((String value) {
+                        Color optionColor;
+                        if (value == "Correct") {
+                          optionColor = Colors.green.shade600;
+                        } else if (value == "Incorrect") {
+                          optionColor = Colors.red.shade600;
+                        } else if (value == "Unanswered") {
+                          optionColor = secondaryTextColor; // A neutral grey
+                        } else { // "All"
+                          optionColor = primaryTextColor;
+                        }
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(value, style: TextStyle(color: optionColor)), // Themed item text
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 15),
 
-            Expanded(
-              child: ListView.builder(
-                itemCount: questions.length,
-                itemBuilder: (context, index) {
-                  final question = questions[index];
-                  final userAnswer = userAnswers[index];
-                  final correctIndex = question.correctIndex;
+            // --- Question Review List ---
+            filteredQuestionIndices.isEmpty
+                ? Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Center(
+                child: Text(
+                  "No questions found for the selected filter.",
+                  style: TextStyle(fontSize: 16, color: secondaryTextColor),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            )
+                : ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: filteredQuestionIndices.length,
+              itemBuilder: (context, idx) {
+                final originalIndex = filteredQuestionIndices[idx];
+                final question = widget.questions[originalIndex];
+                final userAnswerIndex = widget.userAnswers[originalIndex];
+                final bool isCorrect = userAnswerIndex == question.correctIndex;
+                final Duration timeTaken = widget.questionTimes[originalIndex];
+                final bool tookTooLong = timeTaken.inSeconds > 15;
 
-                  final isCorrect = userAnswer == correctIndex;
+                String statusText;
+                Color statusColor;
+                if (isCorrect) {
+                  statusText = "Status: Correct";
+                  statusColor = Colors.green.shade600;
+                } else if (userAnswerIndex!= null) {
+                  statusText = "Status: Incorrect";
+                  statusColor = Colors.red.shade600;
+                } else {
+                  statusText = "Status: Unanswered";
+                  statusColor = secondaryTextColor;
+                }
 
-                  // --- NEW: Get time spent for this question ---
-                  final timeSpent = questionTimes[index];
-                  final tookTooLong = timeSpent.inSeconds > 15; // Highlight if took more than 15 secs
-                  // --------------------------------------------
+                String highlightReason = "";
+                if (tookTooLong) {
+                  highlightReason = " (Took too long)";
+                }
 
-                  return Card(
-                    margin: const EdgeInsets.symmetric(vertical: 8),
-                    // --- NEW: Highlight questions that took too long ---
-                    color: tookTooLong? Colors.orange.shade100 : null,
-                    // -------------------------------------------------
-                    child: Padding(
-                      padding: const EdgeInsets.all(12.0),
-                      child: Column(
+                // --- UPDATED cardHighlightColor Logic ---
+                Color cardHighlightColor;
+                if (tookTooLong) {
+                  // Prioritize orange highlight if took too long
+                  cardHighlightColor = isDarkTheme? Colors.orange.shade900 : Colors.orange.shade100;
+                } else if (isCorrect) {
+                  // Green for correct
+                  cardHighlightColor = isDarkTheme? Colors.green.shade900 : Colors.green.shade100;
+                } else if (userAnswerIndex!= null) {
+                  // Red for incorrect
+                  cardHighlightColor = isDarkTheme? Colors.red.shade900 : Colors.red.shade100;
+                } else {
+                  // Grey for unanswered
+                  cardHighlightColor = isDarkTheme? Colors.blueGrey.shade900 : Colors.grey.shade100;
+                }
+                // --- END UPDATED cardHighlightColor Logic ---
+
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 15),
+                  elevation: 2,
+                  color: cardHighlightColor,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  child: Theme( // Override expansion tile theme for custom color
+                    data: Theme.of(context).copyWith(
+                      dividerColor: Colors.transparent, // No divider inside ExpansionTile
+                    ),
+                    child: ExpansionTile(
+                      key: PageStorageKey(originalIndex), // Keep tile state across rebuilds
+                      tilePadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                      title: Text(
+                        "Q${originalIndex + 1}: ${_displayLanguage == "en"? question.questionEn : question.questionTe}",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: primaryTextColor,
+                        ),
+                      ),
+                      subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // --- NEW: Display Question Number and Time ---
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  "Q${index + 1}: ${question.questionEn}",
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              Text(
-                                "Time: ${_formatDuration(timeSpent)}" +
-                                    (tookTooLong? " (Slow!)" : ""),
-                                style: TextStyle(
-                                  fontSize: 12, // Smaller font for time
-                                  color: tookTooLong? Colors.red : Colors.grey[700],
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                          // ----------------------------------------------
-                          const SizedBox(height: 4),
-
-                          // Telugu Question (Keeping it as you had it)
                           Text(
-                            question.questionTe,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.grey, // Slightly subdue Telugu for primary display
-                            ),
-                          ),
-
-                          const SizedBox(height: 8),
-
-                          // Optional Asked In
-                          if (question.askedIn.trim().isNotEmpty)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 4),
-                              margin: const EdgeInsets.only(bottom: 6),
-                              decoration: BoxDecoration(
-                                color: Colors.yellow.shade100,
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                "Asked in: ${question.askedIn}",
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-
-                          const SizedBox(height: 6),
-
-                          Text(
-                            "Your Answer: ${userAnswer!= null? question.optionsEn[userAnswer] : "Not Answered"}",
+                            "$statusText$highlightReason",
                             style: TextStyle(
-                              color: isCorrect? Colors.green : Colors.red,
-                              fontWeight: FontWeight.w500,
+                              color: statusColor,
+                              fontSize: 13,
                             ),
                           ),
-
                           Text(
-                            "Correct Answer: ${question.optionsEn[correctIndex]}",
-                            style: const TextStyle(
-                              color: Colors.green,
-                              fontWeight: FontWeight.w500,
+                            "Time Taken: ${_formatDuration(timeTaken)}",
+                            style: TextStyle(
+                              color: tookTooLong? Colors.orange.shade700 : secondaryTextColor,
+                              fontSize: 13,
                             ),
-                          ),
-
-                          const SizedBox(height: 8),
-
-                          // English Solution
-                          Text(
-                            "Solution (EN): ${question.solutionEn}",
-                            style: const TextStyle(fontSize: 14),
-                          ),
-
-                          const SizedBox(height: 4),
-
-                          // Telugu Solution
-                          Text(
-                            "Solution (TE): ${question.solutionTe}",
-                            style: const TextStyle(fontSize: 14),
                           ),
                         ],
                       ),
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16.0, 0, 16.0, 16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Options:",
+                                style: TextStyle(fontWeight: FontWeight.bold, color: primaryTextColor),
+                              ),
+                              ...List.generate(question.optionsEn.length, (optionIndex) {
+                                bool isSelectedOption = optionIndex == userAnswerIndex;
+                                bool isCorrectOption = optionIndex == question.correctIndex;
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 4.0),
+                                  child: Text(
+                                    "${String.fromCharCode(65 + optionIndex)}. ${_displayLanguage == "en"? question.optionsEn[optionIndex] : question.optionsTe[optionIndex]}",
+                                    style: TextStyle(
+                                      color: isCorrectOption
+                                          ? Colors.green.shade600
+                                          : isSelectedOption &&!isCorrectOption
+                                          ? Colors.red.shade600
+                                          : primaryTextColor,
+                                      fontWeight: isCorrectOption || isSelectedOption
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                    ),
+                                  ),
+                                );
+                              }),
+                              const SizedBox(height: 10),
+                              Text(
+                                "Correct Answer: ${String.fromCharCode(65 + question.correctIndex)}",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.green.shade600,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                "Solution:",
+                                style: TextStyle(fontWeight: FontWeight.bold, color: primaryTextColor),
+                              ),
+                              Text(
+                                _displayLanguage == "en"? question.solutionEn : question.solutionTe,
+                                style: TextStyle(color: secondaryTextColor),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                  );
-                },
-              ),
-            ),
-
-            const SizedBox(height: 20), // Increased space for the button
-
-            Center( // Center the button
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue, // Changed to blue
-                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15), // Make button larger
-                ),
-                onPressed: () {
-                  // Navigate back to the initial screen, clearing the test stack
-                  Navigator.popUntil(context, (route) => route.isFirst);
-                },
-                child: const Text(
-                  "Go to Home", // More descriptive text
-                  style: TextStyle(
-                    fontSize: 18,
-                    color: Colors.white, // Changed text color to white
                   ),
-                ),
+                );
+              },
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).popUntil((route) => route.isFirst);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).primaryColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 15),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text(
+                "Go to Home",
+                style: TextStyle(fontSize: 18),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // Helper widget for summary rows
+  Widget _buildSummaryRow(String label, String value, Color valueColor, Color labelColor) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: TextStyle(fontSize: 16, color: labelColor)),
+          Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: valueColor)),
+        ],
       ),
     );
   }
