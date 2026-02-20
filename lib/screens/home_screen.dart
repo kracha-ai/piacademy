@@ -8,7 +8,7 @@ import '../services/theme_notifier.dart';
 import '../services/database_service.dart';
 import '../models/data_models.dart';
 
-// --- POSTER SECTION (No changes here) ---
+// --- POSTER SECTION ---
 class PosterSection extends StatefulWidget {
   const PosterSection({super.key});
 
@@ -25,7 +25,6 @@ class _PosterSectionState extends State<PosterSection> {
 
   @override
   Widget build(BuildContext context) {
-    //... This widget's code remains the same...
     return CarouselSlider.builder(
       itemCount: posterPaths.length,
       itemBuilder: (context, index, realIndex) {
@@ -62,7 +61,6 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  // --- 1. CREATE AN INSTANCE OF YOUR DATABASE SERVICE ---
   final DatabaseService _dbService = DatabaseService();
 
   @override
@@ -96,12 +94,9 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 16),
             const PosterSection(),
             const SizedBox(height: 24),
-
-            // --- 2. PASS THE DATABASE SERVICE TO YOUR WIDGETS ---
             _ContinueSection(dbService: _dbService),
             _PerformanceSnapshot(dbService: _dbService),
             _FeaturedTests(dbService: _dbService),
-
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 24, 16, 0),
               child: Text(
@@ -109,7 +104,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
             ),
-            const _ActionGrid(), // This widget is static, so no service needed
+            const _ActionGrid(),
             const SizedBox(height: 24),
           ],
         ),
@@ -120,8 +115,7 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             IconButton(icon: const Icon(Icons.home), onPressed: () {}),
             IconButton(icon: const Icon(Icons.school), onPressed: () {}),
-            IconButton(
-                icon: const Icon(Icons.notifications), onPressed: () {}),
+            IconButton(icon: const Icon(Icons.notifications), onPressed: () {}),
             IconButton(icon: const Icon(Icons.person), onPressed: () {}),
           ],
         ),
@@ -130,7 +124,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// --- WIDGET FOR "CONTINUE WHERE YOU LEFT OFF" (NOW WITH REAL DATA) ---
 class _ContinueSection extends StatelessWidget {
   final DatabaseService dbService;
   const _ContinueSection({required this.dbService});
@@ -138,14 +131,11 @@ class _ContinueSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<UnfinishedTest?>(
-      future: dbService.getUnfinishedTest(), // Call the service
+      future: dbService.getUnfinishedTest(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          // You can show a small loader, but for this, it's ok to show nothing while loading
           return const SizedBox.shrink();
         }
-
-        // If there's data and it's not null, show the card. Otherwise, show nothing.
         if (snapshot.hasData && snapshot.data!= null) {
           final unfinishedTest = snapshot.data!;
           return Padding(
@@ -175,20 +165,16 @@ class _ContinueSection extends StatelessWidget {
             ),
           );
         }
-
-        // If there's no unfinished test, just return an empty box.
         return const SizedBox.shrink();
       },
     );
   }
 }
 
-// --- WIDGET FOR PERFORMANCE SNAPSHOT (NOW WITH REAL DATA) ---
 class _PerformanceSnapshot extends StatelessWidget {
   final DatabaseService dbService;
   const _PerformanceSnapshot({required this.dbService});
 
-  // Helper to format duration nicely
   String _formatDuration(Duration d) => "${d.inHours}h ${d.inMinutes.remainder(60)}m";
 
   @override
@@ -196,10 +182,9 @@ class _PerformanceSnapshot extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: FutureBuilder<UserStats>(
-        future: dbService.getUserStats(), // Call the service
+        future: dbService.getUserStats(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            // Show a simple loading card
             return const Card(child: SizedBox(height: 90, child: Center(child: CircularProgressIndicator())));
           }
           if (snapshot.hasError) {
@@ -239,7 +224,6 @@ class _PerformanceSnapshot extends StatelessWidget {
   }
 }
 
-// --- WIDGET FOR HORIZONTAL FEATURED TESTS (NOW WITH REAL DATA) ---
 class _FeaturedTests extends StatelessWidget {
   final DatabaseService dbService;
   const _FeaturedTests({required this.dbService});
@@ -259,7 +243,7 @@ class _FeaturedTests extends StatelessWidget {
         SizedBox(
           height: 150,
           child: FutureBuilder<List<FeaturedTest>>(
-            future: dbService.getFeaturedTests(), // Call the service
+            future: dbService.getFeaturedTests(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
@@ -307,7 +291,6 @@ class _FeaturedTests extends StatelessWidget {
   }
 }
 
-// --- WIDGET FOR THE 3-COLUMN ACTION GRID (This widget is static) ---
 class _ActionGrid extends StatelessWidget {
   const _ActionGrid();
 
@@ -337,9 +320,6 @@ class _ActionGrid extends StatelessWidget {
         itemBuilder: (context, index) {
           final button = gridButtons[index];
           final bool isProminent = (button['text'] == 'Analysis' || button['text'] == 'Quiz');
-          final double iconSize = isProminent? 50.0 : 40.0;
-          final double fontSize = isProminent? 15.0 : 14.0;
-          final FontWeight fontWeight = isProminent? FontWeight.bold : FontWeight.w500;
 
           return Card(
             elevation: isProminent? 4 : 2,
@@ -348,8 +328,6 @@ class _ActionGrid extends StatelessWidget {
               onTap: () {
                 if (button['targetScreen']!= null) {
                   Navigator.push(context, MaterialPageRoute(builder: button['targetScreen'] as WidgetBuilder));
-                } else {
-                  print("${button['text']} feature not implemented yet");
                 }
               },
               child: Column(
@@ -357,18 +335,18 @@ class _ActionGrid extends StatelessWidget {
                 children: [
                   Image.asset(
                     button['iconPath'],
-                    width: iconSize,
-                    height: iconSize,
+                    width: isProminent? 50.0 : 40.0,
+                    height: isProminent? 50.0 : 40.0,
                     errorBuilder: (context, error, stackTrace) =>
-                        Icon(Icons.error, size: iconSize),
+                        Icon(Icons.error, size: isProminent? 50.0 : 40.0),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     button['text'],
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: fontSize,
-                      fontWeight: fontWeight,
+                      fontSize: isProminent? 15.0 : 14.0,
+                      fontWeight: isProminent? FontWeight.bold : FontWeight.w500,
                     ),
                   ),
                 ],

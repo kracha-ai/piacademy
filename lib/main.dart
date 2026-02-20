@@ -1,17 +1,20 @@
+// main.dart - Entire corrected code block
+
 import 'package:flutter/material.dart';
 import 'package:piacademy/screens/login_screen.dart';
+import 'package:piacademy/screens/pin_setup_screen.dart';
+import 'package:piacademy/screens/home_screen.dart';
+import 'package:piacademy/screens/pin_login_screen.dart'; // <--- ADD THIS IMPORT!
 import 'package:provider/provider.dart';
-import 'package:firebase_core/firebase_core.dart'; // 1. ADD THIS
-import 'firebase_options.dart'; // 2. ADD THIS (The file we generated earlier)
-import 'screens/splash_screen.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'firebase_options.dart';
 import 'services/theme_notifier.dart';
 
-// 3. CHANGE main() to be "Future<void>" and "async"
 Future<void> main() async {
-  // 4. ENSURE EVERYTHING IS READY BEFORE STARTING
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 5. START FIREBASE
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -43,7 +46,6 @@ class PiAcademy extends StatelessWidget {
           elevation: 4,
         ),
         scaffoldBackgroundColor: Colors.white,
-        cardColor: Colors.white,
       ),
       darkTheme: ThemeData(
         brightness: Brightness.dark,
@@ -54,10 +56,53 @@ class PiAcademy extends StatelessWidget {
           elevation: 4,
         ),
         scaffoldBackgroundColor: Colors.grey[900],
-        cardColor: Colors.grey[800],
       ),
       themeMode: themeNotifier.themeMode,
-      home: const LoginScreen(),
+      home: const AuthGate(),
+    );
+  }
+}
+
+// --- THIS IS THE AUTH GATE - IT STAYS IN MAIN.DART! ---
+class AuthGate extends StatelessWidget {
+  const AuthGate({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        // 1. If Firebase is still thinking, show a loading circle
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        }
+
+        // 2. If NOT logged in (no user data), show the Login Screen
+        if (!snapshot.hasData) {
+          return const LoginScreen();
+        }
+
+        // 3. If LOGGED IN, check if they have a PIN saved in the phone memory
+        return FutureBuilder<SharedPreferences>(
+          future: SharedPreferences.getInstance(),
+          builder: (context, prefSnapshot) {
+            // Show loading indicator while SharedPreferences is being loaded
+            if (prefSnapshot.connectionState == ConnectionState.waiting ||!prefSnapshot.hasData) {
+              return const Scaffold(body: Center(child: CircularProgressIndicator()));
+            }
+
+            final String? savedPin = prefSnapshot.data!.getString('user_pin');
+
+            // If no PIN is saved, or it's empty, go to PinSetupScreen
+            if (savedPin == null || savedPin.isEmpty) {
+              return const PinSetupScreen();
+            } else {
+              // If a PIN IS saved, go to the PinLoginScreen to verify it
+              return const PinLoginScreen(); // <--- THIS IS THE ONLY LINE THAT CHANGES HERE!
+            }
+          },
+        );
+      },
     );
   }
 }
