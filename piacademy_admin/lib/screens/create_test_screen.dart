@@ -1,12 +1,9 @@
-// lib/screens/create_test_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:convert';
-import 'package:collection/collection.dart'; // For ListEquality
-
-import '../widgets/question_form_dialog.dart'; // Ensure this import path is correct for your setup
+import 'package:google_fonts/google_fonts.dart';
+import '../widgets/question_form_dialog.dart';
 
 class CreateTestScreen extends StatefulWidget {
   const CreateTestScreen({super.key});
@@ -17,539 +14,327 @@ class CreateTestScreen extends StatefulWidget {
 
 class _CreateTestScreenState extends State<CreateTestScreen> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _descriptionController = TextEditingController();
-  final TextEditingController _durationController = TextEditingController();
-  final TextEditingController _totalQuestionsController = TextEditingController();
 
-  String _difficulty = 'Easy';
+  final _nameController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  final _durationController = TextEditingController();
+  final _totalQuestionsController = TextEditingController();
+
+  String _difficulty = 'Medium';
   String _category = 'General';
-
+  String _exam = 'SSC';
+  String _topic = 'General Awareness';
   bool _isLoading = false;
 
-  final List<String> _difficulties = ['Easy', 'Medium', 'Hard'];
-  final List<String> _categories = ['General', 'Physics', 'Chemistry', 'Math', 'Biology'];
+  final List<Map<String, dynamic>> _questions = [];
 
-  final List<Map<String, dynamic>> _questions = []; // This list will now be saved directly
+  static const Color primaryBlue = Color(0xFF1A73E8);
+  static const Color bgGrey = Color(0xFFF8F9FA);
 
-  // Function to add or edit a question
-  Future<void> _addOrEditQuestion({Map<String, dynamic>? questionToEdit, int? index}) async {
-    final Map<String, dynamic>? result = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (context) => QuestionFormDialog(initialQuestion: questionToEdit),
+  final _categories = ['General', 'Physics', 'Chemistry', 'Math', 'Biology'];
+  final _exams = ['SSC', 'UPSC', 'JEE', 'NEET', 'Banking', 'Railway'];
+  final _topics = ['Mechanics', 'Algebra', 'Genetics', 'Organic Chemistry', 'Current Affairs', 'General Awareness', 'Arithmetic'];
+  final _difficulties = ['Easy', 'Medium', 'Hard'];
+
+  @override
+  Widget build(BuildContext context) {
+    // Removed Scaffold and Sidebar to prevent "Double Sidebar"
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(32),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header is now handled by main.dart, so we jump straight to content
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: _sectionBox("General Settings", [
+                    TextFormField(
+                      controller: _nameController,
+                      decoration: _inputStyle("Test Title", Icons.edit),
+                      validator: (v) => v!.isEmpty ? "Required" : null,
+                    ),
+                    const SizedBox(height: 15),
+                    TextFormField(
+                      controller: _descriptionController,
+                      decoration: _inputStyle("Description", Icons.description),
+                      maxLines: 2,
+                      validator: (v) => v!.isEmpty ? "Required" : null,
+                    ),
+                  ]),
+                ),
+                const SizedBox(width: 24),
+                Expanded(
+                  child: _sectionBox("Configuration", [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _durationController,
+                            keyboardType: TextInputType.number,
+                            decoration: _inputStyle("Mins", Icons.timer),
+                            validator: (v) => v!.isEmpty ? "Required" : null,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _totalQuestionsController,
+                            keyboardType: TextInputType.number,
+                            decoration: _inputStyle("Qty", Icons.numbers),
+                            validator: (v) => v!.isEmpty ? "Required" : null,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 15),
+                    Row(
+                      children: [
+                        Expanded(child: _buildDropdown("Exam", _exam, _exams, (v) => setState(() => _exam = v!))),
+                        const SizedBox(width: 10),
+                        Expanded(child: _buildDropdown("Category", _category, _categories, (v) => setState(() => _category = v!))),
+                      ],
+                    ),
+                    const SizedBox(height: 15),
+                    Row(
+                      children: [
+                        Expanded(child: _buildDropdown("Topic", _topic, _topics, (v) => setState(() => _topic = v!))),
+                        const SizedBox(width: 10),
+                        Expanded(child: _buildDropdown("Difficulty", _difficulty, _difficulties, (v) => setState(() => _difficulty = v!))),
+                      ],
+                    ),
+                  ]),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 32),
+
+            _sectionBox("Questions Management", [
+              Row(
+                children: [
+                  _actionBtn("Bulk Import (.txt)", Icons.upload_file, _pickAndProcessFile),
+                  const SizedBox(width: 12),
+                  _actionBtn("Manual Question", Icons.add_circle, _addQuestionManually),
+                ],
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                height: 55,
+                child: ElevatedButton.icon(
+                  onPressed: _isLoading ? null : _uploadTest,
+                  icon: _isLoading
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Icon(Icons.cloud_upload),
+                  label: Text("UPLOAD ENTIRE TEST TO SERVER", style: GoogleFonts.inter(fontWeight: FontWeight.bold, letterSpacing: 1)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryBlue,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+            ]),
+
+            const SizedBox(height: 32),
+
+            _sectionBox("Draft Questions (${_questions.length})", [
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _questions.length,
+                itemBuilder: (context, index) {
+                  final q = _questions[index];
+                  final int correctIdx = (q['correctAnswerIndex'] ?? 0).toInt();
+
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    color: bgGrey,
+                    elevation: 0,
+                    child: ListTile(
+                      title: Text(q['text_en'] ?? '', style: const TextStyle(fontSize: 14)),
+                      subtitle: Text(
+                          "Answer: ${String.fromCharCode(65 + correctIdx)}",
+                          style: const TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold)
+                      ),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete_outline, color: Colors.red),
+                        onPressed: () => setState(() => _questions.removeAt(index)),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ]),
+          ],
+        ),
+      ),
     );
-
-    if (result!= null) {
-      setState(() {
-        if (index!= null) {
-          _questions[index] = result;
-        } else {
-          _questions.add(result);
-        }
-      });
-    }
   }
 
-  // Function to pick and process a text file with more flexible parsing
-  Future<void> _pickAndProcessFile() async {
-    setState(() {
-      _isLoading = true;
-    });
+  // --- UI HELPERS ---
 
+  Widget _sectionBox(String title, List<Widget> children) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 16, color: primaryBlue)),
+          const SizedBox(height: 20),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _actionBtn(String label, IconData icon, VoidCallback onTap) {
+    return Expanded(
+      child: OutlinedButton.icon(
+        onPressed: onTap,
+        icon: Icon(icon, size: 18),
+        label: Text(label),
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 18),
+          side: const BorderSide(color: primaryBlue),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
+    );
+  }
+
+  InputDecoration _inputStyle(String label, IconData icon) {
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(icon, size: 18, color: primaryBlue),
+      filled: true,
+      fillColor: bgGrey,
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+    );
+  }
+
+  Widget _buildDropdown(String label, String value, List<String> items, Function(String?) onChanged) {
+    return DropdownButtonFormField<String>(
+      value: value,
+      decoration: _inputStyle(label, Icons.layers),
+      items: items.map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(fontSize: 13)))).toList(),
+      onChanged: onChanged,
+    );
+  }
+
+  // --- LOGIC METHODS ---
+
+  Future<void> _addQuestionManually() async {
+    final Map<String, dynamic>? result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => const QuestionFormDialog(),
+    );
+    if (result != null) setState(() => _questions.add(result));
+  }
+
+  Future<void> _pickAndProcessFile() async {
+    setState(() => _isLoading = true);
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['txt'],
-        allowMultiple: false,
-        withData: true,
-      );
+          type: FileType.custom, allowedExtensions: ['txt'], withData: true);
 
-      if (result!= null && result.files.single.bytes!= null) {
-        final String fileContent = utf8.decode(result.files.single.bytes!);
-        final List<String> lines = fileContent.split('\n');
+      if (result != null && result.files.single.bytes != null) {
+        final content = utf8.decode(result.files.single.bytes!);
+        final lines = content.split('\n');
+        List<Map<String, dynamic>> parsed = [];
+        Map<String, dynamic> current = {'type': 'MCQ'};
+        List<String> optEn = List.filled(4, '');
+        List<String> optTe = List.filled(4, '');
+        String? answer;
 
-        List<Map<String, dynamic>> parsedQuestions = [];
-        Map<String, dynamic> currentQuestion = {'type': 'MCQ'}; // Initialize new question structure
-        List<String> currentOptionsEn = List.filled(4, '');
-        List<String> currentOptionsTe = List.filled(4, '');
-        String? currentAnswerLetter;
-
-        // Helper to finalize and add a question to the list
-        void addCurrentQuestion() {
-          if (currentQuestion.containsKey('text_en') && currentAnswerLetter!= null) {
-            int? correctIndex = _parseAnswerLetter(currentAnswerLetter!);
-            if (correctIndex!= null) {
-              currentQuestion['options_en'] = List.from(currentOptionsEn); // Create new list from values
-              currentQuestion['options_te'] = List.from(currentOptionsTe); // Create new list from values
-              currentQuestion['correctAnswerIndex'] = correctIndex;
-              parsedQuestions.add(currentQuestion);
-            } else {
-              _showSnackBar('Skipped a question due to invalid ANSWER letter: $currentAnswerLetter', Colors.red);
+        void saveCurrent() {
+          if (current.containsKey('text_en') && answer != null) {
+            int idx = ['A', 'B', 'C', 'D'].indexOf(answer!.trim().toUpperCase());
+            if (idx != -1) {
+              current['options_en'] = List.from(optEn);
+              current['options_te'] = List.from(optTe);
+              current['correctAnswerIndex'] = idx;
+              parsed.add(current);
             }
-          } else if (currentQuestion.isNotEmpty) {
-            _showSnackBar('Skipped an incomplete question block.', Colors.red);
           }
-          currentQuestion = {'type': 'MCQ'}; // Reset to a new question template
-          currentOptionsEn = List.filled(4, '');
-          currentOptionsTe = List.filled(4, '');
-          currentAnswerLetter = null;
+          current = {'type': 'MCQ'};
+          optEn = List.filled(4, ''); optTe = List.filled(4, '');
+          answer = null;
         }
 
         for (String line in lines) {
-          String trimmedLine = line.trim();
-          if (trimmedLine.isEmpty) {
-            continue; // Ignore empty lines
-          }
-
-          // Check if this line signals the start of a NEW question
-          if (trimmedLine.startsWith('Q_EN:') && currentQuestion.containsKey('text_en')) {
-            addCurrentQuestion(); // If previous question was being built, add it now
-          }
-
-          if (trimmedLine.startsWith('Q_EN:')) {
-            currentQuestion['text_en'] = trimmedLine.substring(5).trim();
-          } else if (trimmedLine.startsWith('Q_TE:')) {
-            currentQuestion['text_te'] = trimmedLine.substring(5).trim();
-          } else if (trimmedLine.startsWith('ASKED_IN:')) {
-            currentQuestion['asked_in'] = trimmedLine.substring(9).trim();
-          } else if (trimmedLine.startsWith('A_EN:')) {
-            currentOptionsEn[0] = trimmedLine.substring(5).trim();
-          } else if (trimmedLine.startsWith('B_EN:')) {
-            currentOptionsEn[1] = trimmedLine.substring(5).trim();
-          } else if (trimmedLine.startsWith('C_EN:')) {
-            currentOptionsEn[2] = trimmedLine.substring(5).trim();
-          } else if (trimmedLine.startsWith('D_EN:')) {
-            currentOptionsEn[3] = trimmedLine.substring(5).trim();
-          } else if (trimmedLine.startsWith('A_TE:')) {
-            currentOptionsTe[0] = trimmedLine.substring(5).trim();
-          } else if (trimmedLine.startsWith('B_TE:')) {
-            currentOptionsTe[1] = trimmedLine.substring(5).trim();
-          } else if (trimmedLine.startsWith('C_TE:')) {
-            currentOptionsTe[2] = trimmedLine.substring(5).trim();
-          } else if (trimmedLine.startsWith('D_TE:')) {
-            currentOptionsTe[3] = trimmedLine.substring(5).trim();
-          } else if (trimmedLine.startsWith('ANSWER:')) {
-            currentAnswerLetter = trimmedLine.substring(7).trim();
-          } else if (trimmedLine.startsWith('SOLUTION_EN:')) {
-            currentQuestion['solution_en'] = trimmedLine.substring(12).trim();
-          } else if (trimmedLine.startsWith('SOLUTION_TE:')) {
-            currentQuestion['solution_te'] = trimmedLine.substring(12).trim();
+          String trimmed = line.trim();
+          if (trimmed.isEmpty) continue;
+          if (trimmed.startsWith('Q_EN:') && current.containsKey('text_en')) saveCurrent();
+          if (trimmed.contains(':')) {
+            final parts = trimmed.split(':');
+            final key = parts[0].trim();
+            final value = parts.sublist(1).join(':').trim();
+            switch (key) {
+              case 'Q_EN': current['text_en'] = value; break;
+              case 'Q_TE': current['text_te'] = value; break;
+              case 'A_EN': optEn[0] = value; break;
+              case 'B_EN': optEn[1] = value; break;
+              case 'C_EN': optEn[2] = value; break;
+              case 'D_EN': optEn[3] = value; break;
+              case 'A_TE': optTe[0] = value; break;
+              case 'B_TE': optTe[1] = value; break;
+              case 'C_TE': optTe[2] = value; break;
+              case 'D_TE': optTe[3] = value; break;
+              case 'ANSWER': answer = value; break;
+              case 'SOLUTION_EN': current['solution_en'] = value; break;
+              case 'SOLUTION_TE': current['solution_te'] = value; break;
+            }
           }
         }
-
-        // Add the very last question after the loop finishes
-        addCurrentQuestion();
-
-        setState(() {
-          _questions.addAll(parsedQuestions);
-          _showSnackBar('${parsedQuestions.length} questions parsed and added!', Colors.green);
-        });
-      } else {
-        _showSnackBar('No file selected or file is empty.', Colors.red);
+        saveCurrent();
+        setState(() => _questions.addAll(parsed));
       }
     } catch (e) {
-      print('Error picking or processing file: $e');
-      _showSnackBar('Failed to pick or process file: $e', Colors.red);
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
     }
-  }
-
-  // Helper to convert A,B,C,D to 0,1,2,3 index
-  int? _parseAnswerLetter(String letter) {
-    switch (letter.toUpperCase()) {
-      case 'A': return 0;
-      case 'B': return 1;
-      case 'C': return 2;
-      case 'D': return 3;
-      default: return null;
-    }
+    setState(() => _isLoading = false);
   }
 
   Future<void> _uploadTest() async {
-    if (!_formKey.currentState!.validate()) {
-      _showSnackBar('Please fill out all test details.', Colors.red);
+    if (!_formKey.currentState!.validate() || _questions.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Check your settings and add questions!"), backgroundColor: Colors.orange));
       return;
     }
-    if (_questions.isEmpty) {
-      _showSnackBar('Please add at least one question.', Colors.red);
-      return;
-    }
-    final listEquality = const ListEquality().equals;
 
-    for (var q in _questions) {
-      if (q['text_en'] == null || q['text_en'].isEmpty ||
-          q['text_te'] == null || q['text_te'].isEmpty ||
-          q['solution_en'] == null || q['solution_en'].isEmpty ||
-          q['solution_te'] == null || q['solution_te'].isEmpty ||
-          q['asked_in'] == null || q['asked_in'].isEmpty) {
-        _showSnackBar('Please ensure all question fields, asked_in, and solutions are filled for all questions.', Colors.red);
-        return;
-      }
-      if (q['correctAnswerIndex'] == null || q['correctAnswerIndex'] < 0 || q['correctAnswerIndex'] > 3) {
-        _showSnackBar('Invalid correct answer index for one or more questions.', Colors.red);
-        return;
-      }
-      if (listEquality(q['options_en'], List.filled(4, '')) || q['options_en'].any((opt) => opt == null || opt.isEmpty)) {
-        _showSnackBar('Please ensure all English options are filled for all questions.', Colors.red);
-        return;
-      }
-      if (listEquality(q['options_te'], List.filled(4, '')) || q['options_te'].any((opt) => opt == null || opt.isEmpty)) {
-        _showSnackBar('Please ensure all Telugu options are filled for all questions.', Colors.red);
-        return;
-      }
-    }
-
-    setState(() {
-      _isLoading = true;
-    });
-
+    setState(() => _isLoading = true);
     try {
       await FirebaseFirestore.instance.collection('tests').add({
-        'name': _nameController.text,
-        'description': _descriptionController.text,
+        'name': _nameController.text.trim(),
+        'description': _descriptionController.text.trim(),
         'durationMinutes': int.parse(_durationController.text),
         'totalQuestions': int.parse(_totalQuestionsController.text),
         'difficulty': _difficulty,
         'category': _category,
+        'exam': _exam,
+        'topic': _topic,
         'createdAt': FieldValue.serverTimestamp(),
         'questions': _questions,
       });
 
-      _clearForm();
-      _showSnackBar('Test uploaded successfully!', Colors.green);
+      _nameController.clear();
+      _descriptionController.clear();
+      _durationController.clear();
+      _totalQuestionsController.clear();
+      setState(() => _questions.clear());
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Test Uploaded Successfully!"), backgroundColor: Colors.green));
     } catch (e) {
-      print('Error uploading test: $e');
-      _showSnackBar('Failed to upload test: $e', Colors.red);
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Upload failed: $e"), backgroundColor: Colors.red));
     }
-  }
-
-  void _showSnackBar(String message, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: color),
-    );
-  }
-
-  void _clearForm() {
-    _nameController.clear();
-    _descriptionController.clear();
-    _durationController.clear();
-    _totalQuestionsController.clear();
-    setState(() {
-      _difficulty = 'Easy';
-      _category = 'General';
-      _questions.clear();
-    });
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _descriptionController.dispose();
-    _durationController.dispose();
-    _totalQuestionsController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Center( // Center content on wide screens
-      child: ConstrainedBox( // Constrain max width for readability
-        constraints: const BoxConstraints(maxWidth: 900),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0), // Increased padding
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Test Details Section
-                Text(
-                  'Test Details',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 20),
-                Card( // Wrap test details in a Card
-                  child: Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: Column(
-                      children: [
-                        TextFormField(
-                          controller: _nameController,
-                          decoration: const InputDecoration(labelText: 'Test Name (e.g., Physics Test 1)', prefixIcon: Icon(Icons.edit_note)),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter a test name';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 15),
-                        TextFormField(
-                          controller: _descriptionController,
-                          decoration: const InputDecoration(labelText: 'Description', prefixIcon: Icon(Icons.description)),
-                          maxLines: 3,
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter a description';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 15),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextFormField(
-                                controller: _durationController,
-                                decoration: const InputDecoration(labelText: 'Duration (minutes)', prefixIcon: Icon(Icons.timer)),
-                                keyboardType: TextInputType.number,
-                                validator: (value) {
-                                  if (value == null || value.isEmpty || int.tryParse(value) == null) {
-                                    return 'Valid number required';
-                                  }
-                                  return null;
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 15),
-                            Expanded(
-                              child: TextFormField(
-                                controller: _totalQuestionsController,
-                                decoration: const InputDecoration(labelText: 'Total Questions', prefixIcon: Icon(Icons.format_list_numbered)),
-                                keyboardType: TextInputType.number,
-                                validator: (value) {
-                                  if (value == null || value.isEmpty || int.tryParse(value) == null) {
-                                    return 'Valid number required';
-                                  }
-                                  return null;
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 15),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: DropdownButtonFormField<String>(
-                                value: _difficulty,
-                                decoration: const InputDecoration(labelText: 'Difficulty', prefixIcon: Icon(Icons.speed)),
-                                items: _difficulties.map((String value) {
-                                  return DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(value),
-                                  );
-                                }).toList(),
-                                onChanged: (String? newValue) {
-                                  setState(() {
-                                    _difficulty = newValue!;
-                                  });
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 15),
-                            Expanded(
-                              child: DropdownButtonFormField<String>(
-                                value: _category,
-                                decoration: const InputDecoration(labelText: 'Category', prefixIcon: Icon(Icons.subject)),
-                                items: _categories.map((String value) {
-                                  return DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(value),
-                                  );
-                                }).toList(),
-                                onChanged: (String? newValue) {
-                                  setState(() {
-                                    _category = newValue!;
-                                  });
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 40),
-
-                // Upload Questions Section
-                Text(
-                  'Upload Questions from File',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 20),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: Column(
-                      children: [
-                        Text(
-                          'Prepare a.txt file with questions formatted like the example below. Each question block should be complete.',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 20),
-                        ElevatedButton.icon(
-                          onPressed: _isLoading? null : _pickAndProcessFile,
-                          icon: const Icon(Icons.upload_file),
-                          label: const Text('Upload Text File (.txt)'),
-                          style: ElevatedButton.styleFrom(
-                            minimumSize: const Size.fromHeight(50),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        Divider(color: Theme.of(context).dividerColor),
-                        Text(
-                          'Alternatively, manually add questions below.',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 40),
-
-                // Manually Add Questions Section
-                Text(
-                  'Manually Add / Review Questions',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 20),
-
-                if (_questions.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 20.0),
-                    child: Center(
-                      child: Text(
-                        'No questions added yet. Use the "Upload File" button or click "Add Question" below.',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey[700]),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-                ..._questions.asMap().entries.map((entry) {
-                  int index = entry.key;
-                  Map<String, dynamic> question = entry.value;
-                  return Card(
-                    margin: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: ExpansionTile( // Using ExpansionTile for collapsible details
-                      tilePadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                      title: Text('Question ${index + 1}: ${question['text_en']?? 'N/A'}',
-                        style: Theme.of(context).textTheme.titleMedium,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      subtitle: Text('Asked In: ${question['asked_in']?? 'N/A'}',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.edit, color: Colors.indigo),
-                            tooltip: 'Edit Question',
-                            onPressed: () => _addOrEditQuestion(questionToEdit: question, index: index),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.redAccent),
-                            tooltip: 'Delete Question',
-                            onPressed: () {
-                              setState(() {
-                                _questions.removeAt(index);
-                              });
-                            },
-                          ),
-                        ],
-                      ),
-                      childrenPadding: const EdgeInsets.all(16.0), // Padding for the expanded content
-                      children: [
-                        // Detailed content when expanded
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Question Text (Telugu):', style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
-                            Text(question['text_te']?? 'N/A', style: Theme.of(context).textTheme.bodyMedium),
-                            const SizedBox(height: 10),
-
-                            Text('Options (EN/TE):', style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
-                            ...List.generate(4, (optionIndex) {
-                              String optionEn = (question['options_en']!= null && question['options_en'].length > optionIndex)
-                                  ? question['options_en'][optionIndex]
-                                  : 'N/A';
-                              String optionTe = (question['options_te']!= null && question['options_te'].length > optionIndex)
-                                  ? question['options_te'][optionIndex]
-                                  : 'N/A';
-                              bool isCorrect = (question['correctAnswerIndex'] as int) == optionIndex;
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 2.0),
-                                child: Text(
-                                  '${String.fromCharCode(65 + optionIndex)}. $optionEn / $optionTe ${isCorrect? '(Correct)' : ''}',
-                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    color: isCorrect? Theme.of(context).primaryColor : Colors.black87,
-                                    fontWeight: isCorrect? FontWeight.bold : FontWeight.normal,
-                                  ),
-                                ),
-                              );
-                            }),
-                            const SizedBox(height: 10),
-
-                            Text('Solution (English):', style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
-                            Text(question['solution_en']?? 'N/A', style: Theme.of(context).textTheme.bodyMedium),
-                            const SizedBox(height: 10),
-
-                            Text('Solution (Telugu):', style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
-                            Text(question['solution_te']?? 'N/A', style: Theme.of(context).textTheme.bodyMedium),
-                          ],
-                        ),
-                      ],
-                    ),
-                  );
-                }).toList(),
-
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () => _addOrEditQuestion(),
-                    icon: const Icon(Icons.add),
-                    label: const Text('Add Question Manually'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.indigo.shade400,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size.fromHeight(50),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 40),
-
-                // Final Upload Button
-                _isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _uploadTest,
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(60),
-                      textStyle: Theme.of(context).textTheme.titleLarge?.copyWith(color: Colors.white),
-                    ),
-                    child: const Text('Upload Test to Firestore'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
+    setState(() => _isLoading = false);
   }
 }
