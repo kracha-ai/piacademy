@@ -20,10 +20,17 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
   final _durationController = TextEditingController();
   final _totalQuestionsController = TextEditingController();
 
-  String _difficulty = 'Medium';
-  String _category = 'General';
-  String _exam = 'SSC';
-  String _topic = 'General Awareness';
+  // --- NEW STATE VARIABLES FOR THE 4-LEVEL HIERARCHY ---
+  late String _selectedExam;
+  late String _selectedTopic;
+  late String _selectedSubject;
+  late String _selectedSection;
+  late String _selectedDifficulty;
+
+  late List<String> _subjectOptions;
+  late List<String> _sectionOptions;
+
+  bool _isFeatured = false;
   bool _isLoading = false;
 
   final List<Map<String, dynamic>> _questions = [];
@@ -31,14 +38,95 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
   static const Color primaryBlue = Color(0xFF1A73E8);
   static const Color bgGrey = Color(0xFFF8F9FA);
 
-  final _categories = ['General', 'Physics', 'Chemistry', 'Math', 'Biology'];
-  final _exams = ['SSC', 'UPSC', 'JEE', 'NEET', 'Banking', 'Railway'];
-  final _topics = ['Mechanics', 'Algebra', 'Genetics', 'Organic Chemistry', 'Current Affairs', 'General Awareness', 'Arithmetic'];
-  final _difficulties = ['Easy', 'Medium', 'Hard'];
+  // --- THE NEW "RULEBOOK" FOR YOUR HIERARCHY ---
+
+  // Level 1
+  final List<String> examOptions = ['RRB', 'SSC', 'UPSC', 'Bank'];
+
+  // Level 2
+  final List<String> topicOptions = ['Aptitude', 'Reasoning', 'Science', 'GS', 'English'];
+  final List<String> difficultyOptions = ['Easy', 'Medium', 'Hard'];
+
+  // Level 3: Maps a Topic to its list of Subjects
+  final Map<String, List<String>> topicToSubjectsMap = {
+    'Aptitude': ['Number System', 'Arithmetic', 'Time & Speed/Work', 'Algebra', 'Geometry & Mensuration', 'Data Interpretation (DI)', 'Modern Math'],
+    'Reasoning': ['Verbal Reasoning', 'Analytical/Logical Reasoning', 'Non-Verbal & Spatial Reasoning', 'Puzzles & Arrangements'],
+    'Science': ['Physics', 'Chemistry', 'Biology', 'Technology/Misc'],
+    'GS': ['Indian History', 'Geography', 'Indian Polity', 'Economy', 'Current Affairs', 'Static GK'],
+    'English': ['Reading Comprehension', 'Grammar', 'Vocabulary', 'Sentence Structure']
+  };
+
+  // Level 4: Maps a Subject to its list of Sections
+  final Map<String, List<String>> subjectToSectionsMap = {
+    'Number System': ['Divisibility rules', 'HCF & LCM', 'Prime Numbers', 'Fractions/Decimals'],
+    'Arithmetic': ['Percentages', 'Profit & Loss', 'Discount', 'Simple & Compound Interest', 'Average', 'Ratio & Proportion', 'Mixture & Alligation', 'Partnerships', 'Ages'],
+    'Time & Speed/Work': ['Time and Work', 'Pipes & Cisterns', 'Time, Speed & Distance', 'Boats & Streams', 'Problems on Trains'],
+    'Algebra': ['Linear & Quadratic Equations', 'Polynomials', 'Surds & Indices', 'Logarithms'],
+    'Geometry & Mensuration': ['Triangles', 'Circles', 'Polygons', 'Area & Perimeter (2D)', 'Volume & Surface Area (3D)', 'Co-ordinate Geometry'],
+    'Data Interpretation (DI)': ['Bar Graphs', 'Pie Charts', 'Line Graphs', 'Tables', 'Data Sufficiency'],
+    'Modern Math': ['Probability', 'Permutations & Combinations', 'Sequence & Series (AP/GP/HP)'],
+    'Verbal Reasoning': ['Analogy', 'Classification (Odd One Out)', 'Coding-Decoding', 'Blood Relations', 'Direction Sense', 'Series (Number/Alphabet)', 'Ranking'],
+    'Analytical/Logical Reasoning': ['Syllogism', 'Statements & Conclusions', 'Assumptions', 'Arguments', 'Cause & Effect', 'Course of Action', 'Data Sufficiency'],
+    'Non-Verbal & Spatial Reasoning': ['Mirror/Water Images', 'Embedded Figures', 'Pattern Completion', 'Paper Folding/Cutting', 'Dice & Cube Problems'],
+    'Puzzles & Arrangements': ['Seating Arrangement (Linear/Circular)', 'Matrix Puzzle', 'Scheduling/Data-based Puzzles'],
+    'Physics': ['Units & Measurements', 'Mechanics', 'Work, Power & Energy', 'Gravitation', 'Light & Optics', 'Sound', 'Electricity & Magnetism', 'Heat & Thermodynamics'],
+    'Chemistry': ['Atomic Structure', 'Chemical Bonding', 'Acids, Bases & Salts', 'Metals & Non-metals', 'Periodic Table', 'Environmental Chemistry', 'Everyday Chemistry'],
+    'Biology': ['Cell Structure & Functions', 'Classification of Organisms', 'Human Anatomy & Physiology', 'Nutrition & Food', 'Health & Diseases'],
+    'Technology/Misc': ['Space Technology', 'Defense Tech', 'Renewable Energy', 'Nuclear Technology'],
+    'Indian History': ['Ancient', 'Medieval', 'Modern History'],
+    'Geography': ['Physical', 'Indian', 'World Geography'],
+    'Indian Polity': ['Constitution of India', 'Fundamental Rights', 'Parliament', 'Judiciary', 'Panchayati Raj'],
+    'Economy': ['Basics of Indian Economy', 'Banking System', 'Budget', 'Taxation', 'GDP', 'Inflation'],
+    'Current Affairs': ['National & International News', 'Government Schemes', 'Sports', 'Awards & Honors', 'Appointments'],
+    'Static GK': ['Important Dates', 'Books & Authors', 'Capitals & Currencies', 'Organizations'],
+    'Reading Comprehension': ['Passage Theme', 'Inference', 'Tone', 'Vocabulary'],
+    'Grammar': ['Error Detection', 'Sentence Improvement', 'Subject-Verb Agreement', 'Tenses', 'Articles', 'Prepositions', 'Active/Passive Voice', 'Direct/Indirect Speech'],
+    'Vocabulary': ['Synonyms & Antonyms', 'Idioms & Phrases', 'One Word Substitution', 'Spellings'],
+    'Sentence Structure': ['Sentence Rearrangement (Para Jumbles)', 'Cloze Test', 'Fill in the Blanks']
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize the state with default values to prevent errors
+    _selectedExam = examOptions.first;
+    _selectedTopic = topicOptions.first;
+    _selectedDifficulty = difficultyOptions[1]; // Medium
+
+    // Set the initial lists for the dependent dropdowns
+    _subjectOptions = topicToSubjectsMap[_selectedTopic]!;
+    _selectedSubject = _subjectOptions.first;
+
+    _sectionOptions = subjectToSectionsMap[_selectedSubject]?? [];
+    _selectedSection = _sectionOptions.isNotEmpty? _sectionOptions.first : '';
+  }
+
+  void _onTopicChanged(String newTopic) {
+    setState(() {
+      _selectedTopic = newTopic;
+
+      // Update subject list and reset selection
+      _subjectOptions = topicToSubjectsMap[_selectedTopic]!;
+      _selectedSubject = _subjectOptions.first;
+
+      // Update section list based on the new subject and reset selection
+      _sectionOptions = subjectToSectionsMap[_selectedSubject]?? [];
+      _selectedSection = _sectionOptions.isNotEmpty? _sectionOptions.first : '';
+    });
+  }
+
+  void _onSubjectChanged(String newSubject) {
+    setState(() {
+      _selectedSubject = newSubject;
+
+      // Update section list and reset selection
+      _sectionOptions = subjectToSectionsMap[_selectedSubject]?? [];
+      _selectedSection = _sectionOptions.isNotEmpty? _sectionOptions.first : '';
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Removed Scaffold and Sidebar to prevent "Double Sidebar"
     return SingleChildScrollView(
       padding: const EdgeInsets.all(32),
       child: Form(
@@ -46,7 +134,6 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header is now handled by main.dart, so we jump straight to content
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -55,14 +142,14 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
                     TextFormField(
                       controller: _nameController,
                       decoration: _inputStyle("Test Title", Icons.edit),
-                      validator: (v) => v!.isEmpty ? "Required" : null,
+                      validator: (v) => v!.isEmpty? "Required" : null,
                     ),
                     const SizedBox(height: 15),
                     TextFormField(
                       controller: _descriptionController,
                       decoration: _inputStyle("Description", Icons.description),
                       maxLines: 2,
-                      validator: (v) => v!.isEmpty ? "Required" : null,
+                      validator: (v) => v!.isEmpty? "Required" : null,
                     ),
                   ]),
                 ),
@@ -71,12 +158,20 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
                   child: _sectionBox("Configuration", [
                     Row(
                       children: [
+                        Expanded(child: _buildDropdown("Exam", _selectedExam, examOptions, (v) => setState(() => _selectedExam = v!))),
+                        const SizedBox(width: 10),
+                        Expanded(child: _buildDropdown("Difficulty", _selectedDifficulty, difficultyOptions, (v) => setState(() => _selectedDifficulty = v!))),
+                      ],
+                    ),
+                    const SizedBox(height: 15),
+                    Row(
+                      children: [
                         Expanded(
                           child: TextFormField(
                             controller: _durationController,
                             keyboardType: TextInputType.number,
                             decoration: _inputStyle("Mins", Icons.timer),
-                            validator: (v) => v!.isEmpty ? "Required" : null,
+                            validator: (v) => v!.isEmpty? "Required" : null,
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -85,34 +180,40 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
                             controller: _totalQuestionsController,
                             keyboardType: TextInputType.number,
                             decoration: _inputStyle("Qty", Icons.numbers),
-                            validator: (v) => v!.isEmpty ? "Required" : null,
+                            validator: (v) => v!.isEmpty? "Required" : null,
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 15),
-                    Row(
-                      children: [
-                        Expanded(child: _buildDropdown("Exam", _exam, _exams, (v) => setState(() => _exam = v!))),
-                        const SizedBox(width: 10),
-                        Expanded(child: _buildDropdown("Category", _category, _categories, (v) => setState(() => _category = v!))),
-                      ],
-                    ),
-                    const SizedBox(height: 15),
-                    Row(
-                      children: [
-                        Expanded(child: _buildDropdown("Topic", _topic, _topics, (v) => setState(() => _topic = v!))),
-                        const SizedBox(width: 10),
-                        Expanded(child: _buildDropdown("Difficulty", _difficulty, _difficulties, (v) => setState(() => _difficulty = v!))),
-                      ],
+                    SwitchListTile(
+                      title: Text('Feature on Home Screen', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500)),
+                      value: _isFeatured,
+                      onChanged: (val) => setState(() => _isFeatured = val),
+                      activeColor: primaryBlue,
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
                     ),
                   ]),
                 ),
               ],
             ),
-
             const SizedBox(height: 32),
-
+            _sectionBox("Test Hierarchy", [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: _buildDropdown("Topic", _selectedTopic, topicOptions, (v) => _onTopicChanged(v!))),
+                  const SizedBox(width: 10),
+                  Expanded(child: _buildDropdown("Subject", _selectedSubject, _subjectOptions, (v) => _onSubjectChanged(v!))),
+                ],
+              ),
+              const SizedBox(height: 15),
+              // Section dropdown is only shown if there are sections for the selected subject
+              if (_sectionOptions.isNotEmpty)
+                _buildDropdown("Section", _selectedSection, _sectionOptions, (v) => setState(() => _selectedSection = v!)),
+            ]),
+            const SizedBox(height: 32),
             _sectionBox("Questions Management", [
               Row(
                 children: [
@@ -126,7 +227,7 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
                 width: double.infinity,
                 height: 55,
                 child: ElevatedButton.icon(
-                  onPressed: _isLoading ? null : _uploadTest,
+                  onPressed: _isLoading? null : _uploadTest,
                   icon: _isLoading
                       ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                       : const Icon(Icons.cloud_upload),
@@ -139,9 +240,7 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
                 ),
               ),
             ]),
-
             const SizedBox(height: 32),
-
             _sectionBox("Draft Questions (${_questions.length})", [
               ListView.builder(
                 shrinkWrap: true,
@@ -149,18 +248,14 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
                 itemCount: _questions.length,
                 itemBuilder: (context, index) {
                   final q = _questions[index];
-                  final int correctIdx = (q['correctAnswerIndex'] ?? 0).toInt();
-
+                  final int correctIdx = (q['correctAnswerIndex']?? 0).toInt();
                   return Card(
                     margin: const EdgeInsets.only(bottom: 8),
                     color: bgGrey,
                     elevation: 0,
                     child: ListTile(
-                      title: Text(q['text_en'] ?? '', style: const TextStyle(fontSize: 14)),
-                      subtitle: Text(
-                          "Answer: ${String.fromCharCode(65 + correctIdx)}",
-                          style: const TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold)
-                      ),
+                      title: Text(q['text_en']?? '', style: const TextStyle(fontSize: 14)),
+                      subtitle: Text("Answer: ${String.fromCharCode(65 + correctIdx)}", style: const TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold)),
                       trailing: IconButton(
                         icon: const Icon(Icons.delete_outline, color: Colors.red),
                         onPressed: () => setState(() => _questions.removeAt(index)),
@@ -223,22 +318,24 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
   }
 
   Widget _buildDropdown(String label, String value, List<String> items, Function(String?) onChanged) {
+    // A check to prevent errors if the list of items is empty or the current value isn't in it
+    final isValueValid = items.contains(value);
+
     return DropdownButtonFormField<String>(
-      value: value,
+      value: isValueValid? value : null,
       decoration: _inputStyle(label, Icons.layers),
       items: items.map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(fontSize: 13)))).toList(),
       onChanged: onChanged,
+      // To handle cases where a subject might not have sections
+      hint: items.isEmpty? const Text("Not applicable", style: TextStyle(fontSize: 13)) : null,
     );
   }
 
-  // --- LOGIC METHODS ---
+  // --- LOGIC METHODS (Unchanged from your original code, but with updated _uploadTest) ---
 
   Future<void> _addQuestionManually() async {
-    final Map<String, dynamic>? result = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (context) => const QuestionFormDialog(),
-    );
-    if (result != null) setState(() => _questions.add(result));
+    final Map<String, dynamic>? result = await showDialog<Map<String, dynamic>>(context: context, builder: (context) => const QuestionFormDialog());
+    if (result!= null) setState(() => _questions.add(result));
   }
 
   Future<void> _pickAndProcessFile() async {
@@ -246,8 +343,8 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
           type: FileType.custom, allowedExtensions: ['txt'], withData: true);
-
-      if (result != null && result.files.single.bytes != null) {
+      if (result!= null && result.files.single.bytes!= null) {
+        // This line uses the 'dart:convert' tool
         final content = utf8.decode(result.files.single.bytes!);
         final lines = content.split('\n');
         List<Map<String, dynamic>> parsed = [];
@@ -255,11 +352,10 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
         List<String> optEn = List.filled(4, '');
         List<String> optTe = List.filled(4, '');
         String? answer;
-
         void saveCurrent() {
-          if (current.containsKey('text_en') && answer != null) {
+          if (current.containsKey('text_en') && answer!= null) {
             int idx = ['A', 'B', 'C', 'D'].indexOf(answer!.trim().toUpperCase());
-            if (idx != -1) {
+            if (idx!= -1) {
               current['options_en'] = List.from(optEn);
               current['options_te'] = List.from(optTe);
               current['correctAnswerIndex'] = idx;
@@ -267,10 +363,10 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
             }
           }
           current = {'type': 'MCQ'};
-          optEn = List.filled(4, ''); optTe = List.filled(4, '');
+          optEn = List.filled(4, '');
+          optTe = List.filled(4, '');
           answer = null;
         }
-
         for (String line in lines) {
           String trimmed = line.trim();
           if (trimmed.isEmpty) continue;
@@ -298,39 +394,51 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
         }
         saveCurrent();
         setState(() => _questions.addAll(parsed));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("${parsed.length} questions imported successfully!"), backgroundColor: Colors.green));
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error processing file: $e"), backgroundColor: Colors.red));
     }
     setState(() => _isLoading = false);
   }
-
   Future<void> _uploadTest() async {
     if (!_formKey.currentState!.validate() || _questions.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Check your settings and add questions!"), backgroundColor: Colors.orange));
       return;
     }
-
+    // A check to ensure a section is selected if available
+    if (_sectionOptions.isNotEmpty && _selectedSection.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please select a section for the test."), backgroundColor: Colors.orange));
+      return;
+    }
     setState(() => _isLoading = true);
     try {
       await FirebaseFirestore.instance.collection('tests').add({
+        // General Info
         'name': _nameController.text.trim(),
         'description': _descriptionController.text.trim(),
         'durationMinutes': int.parse(_durationController.text),
         'totalQuestions': int.parse(_totalQuestionsController.text),
-        'difficulty': _difficulty,
-        'category': _category,
-        'exam': _exam,
-        'topic': _topic,
+        'difficulty': _selectedDifficulty,
+        'isFeatured': _isFeatured,
         'createdAt': FieldValue.serverTimestamp(),
+        // --- THE NEW HIERARCHY DATA ---
+        'exam': _selectedExam,
+        'topic': _selectedTopic,
+        'subject': _selectedSubject,
+        'section': _sectionOptions.isNotEmpty? _selectedSection : 'General', // Save 'General' if no sections exist
+        // Questions
         'questions': _questions,
       });
-
+      // Clear form on success
       _nameController.clear();
       _descriptionController.clear();
       _durationController.clear();
       _totalQuestionsController.clear();
-      setState(() => _questions.clear());
+      setState(() {
+        _questions.clear();
+        _isFeatured = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Test Uploaded Successfully!"), backgroundColor: Colors.green));
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Upload failed: $e"), backgroundColor: Colors.red));
