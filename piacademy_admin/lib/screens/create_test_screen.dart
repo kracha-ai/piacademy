@@ -12,6 +12,13 @@ class CreateTestScreen extends StatefulWidget {
   State<CreateTestScreen> createState() => _CreateTestScreenState();
 }
 
+// --- NEW: An Enum to clearly define the different types of tests you can create ---
+enum TestType {
+  sectionWise,
+  fullSubject,
+  fullMock,
+}
+
 class _CreateTestScreenState extends State<CreateTestScreen> {
   final _formKey = GlobalKey<FormState>();
 
@@ -20,7 +27,10 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
   final _durationController = TextEditingController();
   final _totalQuestionsController = TextEditingController();
 
-  // --- NEW STATE VARIABLES FOR THE 4-LEVEL HIERARCHY ---
+  // --- NEW: State variable for the main Test Type selector ---
+  TestType _selectedTestType = TestType.sectionWise;
+
+  // --- State variables for the 4-level hierarchy ---
   late String _selectedExam;
   late String _selectedTopic;
   late String _selectedSubject;
@@ -31,6 +41,8 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
   late List<String> _sectionOptions;
 
   bool _isFeatured = false;
+  // --- NEW: State for the topic grouping switch. Default is ON. ---
+  bool _groupPerTopic = true;
   bool _isLoading = false;
 
   final List<Map<String, dynamic>> _questions = [];
@@ -38,8 +50,7 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
   static const Color primaryBlue = Color(0xFF1A73E8);
   static const Color bgGrey = Color(0xFFF8F9FA);
 
-  // --- THE NEW "RULEBOOK" FOR YOUR HIERARCHY ---
-
+  // --- The "Rulebook" for your hierarchy ---
   // Level 1
   final List<String> examOptions = ['RRB', 'SSC', 'UPSC', 'Bank'];
 
@@ -105,11 +116,9 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
     setState(() {
       _selectedTopic = newTopic;
 
-      // Update subject list and reset selection
       _subjectOptions = topicToSubjectsMap[_selectedTopic]!;
       _selectedSubject = _subjectOptions.first;
 
-      // Update section list based on the new subject and reset selection
       _sectionOptions = subjectToSectionsMap[_selectedSubject]?? [];
       _selectedSection = _sectionOptions.isNotEmpty? _sectionOptions.first : '';
     });
@@ -119,7 +128,6 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
     setState(() {
       _selectedSubject = newSubject;
 
-      // Update section list and reset selection
       _sectionOptions = subjectToSectionsMap[_selectedSubject]?? [];
       _selectedSection = _sectionOptions.isNotEmpty? _sectionOptions.first : '';
     });
@@ -158,14 +166,6 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
                   child: _sectionBox("Configuration", [
                     Row(
                       children: [
-                        Expanded(child: _buildDropdown("Exam", _selectedExam, examOptions, (v) => setState(() => _selectedExam = v!))),
-                        const SizedBox(width: 10),
-                        Expanded(child: _buildDropdown("Difficulty", _selectedDifficulty, difficultyOptions, (v) => setState(() => _selectedDifficulty = v!))),
-                      ],
-                    ),
-                    const SizedBox(height: 15),
-                    Row(
-                      children: [
                         Expanded(
                           child: TextFormField(
                             controller: _durationController,
@@ -178,6 +178,7 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
                         Expanded(
                           child: TextFormField(
                             controller: _totalQuestionsController,
+                            // --- FIX #1: Changed TextInput to TextInputType ---
                             keyboardType: TextInputType.number,
                             decoration: _inputStyle("Qty", Icons.numbers),
                             validator: (v) => v!.isEmpty? "Required" : null,
@@ -185,6 +186,8 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 15),
+                    _buildDropdown("Difficulty", _selectedDifficulty, difficultyOptions, (v) => setState(() => _selectedDifficulty = v!)),
                     const SizedBox(height: 15),
                     SwitchListTile(
                       title: Text('Feature on Home Screen', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500)),
@@ -199,19 +202,48 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
               ],
             ),
             const SizedBox(height: 32),
-            _sectionBox("Test Hierarchy", [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(child: _buildDropdown("Topic", _selectedTopic, topicOptions, (v) => _onTopicChanged(v!))),
-                  const SizedBox(width: 10),
-                  Expanded(child: _buildDropdown("Subject", _selectedSubject, _subjectOptions, (v) => _onSubjectChanged(v!))),
+            _sectionBox("Test Type", [
+              DropdownButtonFormField<TestType>(
+                value: _selectedTestType,
+                decoration: _inputStyle("Select the type of test", Icons.rule),
+                items: const [
+                  DropdownMenuItem(value: TestType.sectionWise, child: Text("Section-wise Test (Specific)")),
+                  DropdownMenuItem(value: TestType.fullSubject, child: Text("Full Subject Test")),
+                  DropdownMenuItem(value: TestType.fullMock, child: Text("Full Mock Test (Entire Exam)")),
                 ],
+                onChanged: (TestType? newValue) {
+                  setState(() {
+                    _selectedTestType = newValue!;
+                  });
+                },
               ),
-              const SizedBox(height: 15),
-              // Section dropdown is only shown if there are sections for the selected subject
-              if (_sectionOptions.isNotEmpty)
+              if (_selectedTestType == TestType.fullMock)...[
+                const SizedBox(height: 15),
+                SwitchListTile(
+                  title: Text('Group questions by Topic', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500)),
+                  subtitle: Text('If ON, user sees all Aptitude, then all Reasoning, etc. If OFF, all questions are mixed.', style: GoogleFonts.inter(fontSize: 12)),
+                  value: _groupPerTopic,
+                  onChanged: (val) => setState(() => _groupPerTopic = val),
+                  activeColor: primaryBlue,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ]
+            ]),
+            const SizedBox(height: 32),
+            _sectionBox("Test Hierarchy", [
+              _buildDropdown("Exam", _selectedExam, examOptions, (v) => setState(() => _selectedExam = v!)),
+              if (_selectedTestType!= TestType.fullMock)...[
+                const SizedBox(height: 15),
+                _buildDropdown("Topic", _selectedTopic, topicOptions, (v) => _onTopicChanged(v!)),
+              ],
+              if (_selectedTestType!= TestType.fullMock)...[
+                const SizedBox(height: 15),
+                _buildDropdown("Subject", _selectedSubject, _subjectOptions, (v) => _onSubjectChanged(v!)),
+              ],
+              if (_selectedTestType == TestType.sectionWise && _sectionOptions.isNotEmpty)...[
+                const SizedBox(height: 15),
                 _buildDropdown("Section", _selectedSection, _sectionOptions, (v) => setState(() => _selectedSection = v!)),
+              ],
             ]),
             const SizedBox(height: 32),
             _sectionBox("Questions Management", [
@@ -228,9 +260,7 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
                 height: 55,
                 child: ElevatedButton.icon(
                   onPressed: _isLoading? null : _uploadTest,
-                  icon: _isLoading
-                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Icon(Icons.cloud_upload),
+                  icon: _isLoading? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.cloud_upload),
                   label: Text("UPLOAD ENTIRE TEST TO SERVER", style: GoogleFonts.inter(fontWeight: FontWeight.bold, letterSpacing: 1)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryBlue,
@@ -249,13 +279,16 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
                 itemBuilder: (context, index) {
                   final q = _questions[index];
                   final int correctIdx = (q['correctAnswerIndex']?? 0).toInt();
+                  final String topicLabel = q['topic']!= null? "Topic: ${q['topic']} | " : "";
                   return Card(
                     margin: const EdgeInsets.only(bottom: 8),
                     color: bgGrey,
                     elevation: 0,
                     child: ListTile(
+                      leading: CircleAvatar(backgroundColor: primaryBlue.withOpacity(0.1), child: Text((index + 1).toString(), style: const TextStyle(color: primaryBlue, fontSize: 12, fontWeight: FontWeight.bold))),
                       title: Text(q['text_en']?? '', style: const TextStyle(fontSize: 14)),
-                      subtitle: Text("Answer: ${String.fromCharCode(65 + correctIdx)}", style: const TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold)),
+                      // --- FIX #2: Correctly combined the string variables ---
+                      subtitle: Text("${topicLabel}Answer: ${String.fromCharCode(65 + correctIdx)}", style: const TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold)),
                       trailing: IconButton(
                         icon: const Icon(Icons.delete_outline, color: Colors.red),
                         onPressed: () => setState(() => _questions.removeAt(index)),
@@ -272,7 +305,6 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
   }
 
   // --- UI HELPERS ---
-
   Widget _sectionBox(String title, List<Widget> children) {
     return Container(
       padding: const EdgeInsets.all(24),
@@ -318,33 +350,34 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
   }
 
   Widget _buildDropdown(String label, String value, List<String> items, Function(String?) onChanged) {
-    // A check to prevent errors if the list of items is empty or the current value isn't in it
     final isValueValid = items.contains(value);
-
     return DropdownButtonFormField<String>(
       value: isValueValid? value : null,
       decoration: _inputStyle(label, Icons.layers),
       items: items.map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(fontSize: 13)))).toList(),
       onChanged: onChanged,
-      // To handle cases where a subject might not have sections
       hint: items.isEmpty? const Text("Not applicable", style: TextStyle(fontSize: 13)) : null,
     );
   }
 
-  // --- LOGIC METHODS (Unchanged from your original code, but with updated _uploadTest) ---
-
+  // --- LOGIC METHODS ---
   Future<void> _addQuestionManually() async {
     final Map<String, dynamic>? result = await showDialog<Map<String, dynamic>>(context: context, builder: (context) => const QuestionFormDialog());
-    if (result!= null) setState(() => _questions.add(result));
+    if (result!= null) {
+      setState(() {
+        if (_selectedTestType!= TestType.fullMock) {
+          result['topic'] = _selectedTopic;
+        }
+        _questions.add(result);
+      });
+    }
   }
 
   Future<void> _pickAndProcessFile() async {
     setState(() => _isLoading = true);
     try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-          type: FileType.custom, allowedExtensions: ['txt'], withData: true);
+      FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['txt'], withData: true);
       if (result!= null && result.files.single.bytes!= null) {
-        // This line uses the 'dart:convert' tool
         final content = utf8.decode(result.files.single.bytes!);
         final lines = content.split('\n');
         List<Map<String, dynamic>> parsed = [];
@@ -352,6 +385,7 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
         List<String> optEn = List.filled(4, '');
         List<String> optTe = List.filled(4, '');
         String? answer;
+        String? currentTopic;
         void saveCurrent() {
           if (current.containsKey('text_en') && answer!= null) {
             int idx = ['A', 'B', 'C', 'D'].indexOf(answer!.trim().toUpperCase());
@@ -359,6 +393,9 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
               current['options_en'] = List.from(optEn);
               current['options_te'] = List.from(optTe);
               current['correctAnswerIndex'] = idx;
+              if (currentTopic!= null) {
+                current['topic'] = currentTopic;
+              }
               parsed.add(current);
             }
           }
@@ -370,7 +407,13 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
         for (String line in lines) {
           String trimmed = line.trim();
           if (trimmed.isEmpty) continue;
-          if (trimmed.startsWith('Q_EN:') && current.containsKey('text_en')) saveCurrent();
+          if (trimmed.startsWith('TOPIC:')) {
+            currentTopic = trimmed.substring(6).trim();
+            continue;
+          }
+          if (trimmed.startsWith('Q_EN:') && current.containsKey('text_en')) {
+            saveCurrent();
+          }
           if (trimmed.contains(':')) {
             final parts = trimmed.split(':');
             final key = parts[0].trim();
@@ -384,7 +427,7 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
               case 'D_EN': optEn[3] = value; break;
               case 'A_TE': optTe[0] = value; break;
               case 'B_TE': optTe[1] = value; break;
-              case 'C_TE': optTe[2] = value; break;
+              case 'C_EN': optTe[2] = value; break;
               case 'D_TE': optTe[3] = value; break;
               case 'ANSWER': answer = value; break;
               case 'SOLUTION_EN': current['solution_en'] = value; break;
@@ -401,36 +444,56 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
     }
     setState(() => _isLoading = false);
   }
+
   Future<void> _uploadTest() async {
     if (!_formKey.currentState!.validate() || _questions.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Check your settings and add questions!"), backgroundColor: Colors.orange));
       return;
     }
-    // A check to ensure a section is selected if available
-    if (_sectionOptions.isNotEmpty && _selectedSection.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please select a section for the test."), backgroundColor: Colors.orange));
-      return;
-    }
     setState(() => _isLoading = true);
+
+    Map<String, dynamic> testData = {
+      'name': _nameController.text.trim(),
+      'description': _descriptionController.text.trim(),
+      'durationMinutes': int.parse(_durationController.text),
+      'totalQuestions': int.parse(_totalQuestionsController.text),
+      'difficulty': _selectedDifficulty,
+      'isFeatured': _isFeatured,
+      'createdAt': FieldValue.serverTimestamp(),
+      'questions': _questions,
+      'testType': _selectedTestType.name,
+    };
+
+    switch (_selectedTestType) {
+      case TestType.sectionWise:
+        if (_sectionOptions.isNotEmpty && _selectedSection.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please select a section."), backgroundColor: Colors.orange));
+          setState(() => _isLoading = false);
+          return;
+        }
+        testData['exam'] = _selectedExam;
+        testData['topic'] = _selectedTopic;
+        testData['subject'] = _selectedSubject;
+        testData['section'] = _sectionOptions.isNotEmpty? _selectedSection : 'General';
+        break;
+      case TestType.fullSubject:
+        testData['exam'] = _selectedExam;
+        testData['topic'] = _selectedTopic;
+        testData['subject'] = _selectedSubject;
+        testData['section'] = 'Full Subject';
+        break;
+      case TestType.fullMock:
+        testData['exam'] = _selectedExam;
+        testData['topic'] = 'Full Mock';
+        testData['subject'] = 'Full Mock';
+        testData['section'] = 'Full Mock';
+        testData['groupPerTopic'] = _groupPerTopic;
+        break;
+    }
+
     try {
-      await FirebaseFirestore.instance.collection('tests').add({
-        // General Info
-        'name': _nameController.text.trim(),
-        'description': _descriptionController.text.trim(),
-        'durationMinutes': int.parse(_durationController.text),
-        'totalQuestions': int.parse(_totalQuestionsController.text),
-        'difficulty': _selectedDifficulty,
-        'isFeatured': _isFeatured,
-        'createdAt': FieldValue.serverTimestamp(),
-        // --- THE NEW HIERARCHY DATA ---
-        'exam': _selectedExam,
-        'topic': _selectedTopic,
-        'subject': _selectedSubject,
-        'section': _sectionOptions.isNotEmpty? _selectedSection : 'General', // Save 'General' if no sections exist
-        // Questions
-        'questions': _questions,
-      });
-      // Clear form on success
+      await FirebaseFirestore.instance.collection('tests').add(testData);
+
       _nameController.clear();
       _descriptionController.clear();
       _durationController.clear();
@@ -438,6 +501,8 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
       setState(() {
         _questions.clear();
         _isFeatured = false;
+        _groupPerTopic = true;
+        _selectedTestType = TestType.sectionWise;
       });
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Test Uploaded Successfully!"), backgroundColor: Colors.green));
     } catch (e) {
