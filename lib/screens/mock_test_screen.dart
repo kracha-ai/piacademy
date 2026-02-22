@@ -1,25 +1,41 @@
-import 'dart:async'; // Import for Timer
+// lib/screens/mock_test_screen.dart
+
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart'; // Add provider import
-import '../services/theme_notifier.dart'; // Add theme_notifier import
+import 'package:provider/provider.dart';
+import '../services/database_service.dart'; // Make sure to import this
+import '../services/theme_notifier.dart';
 import 'result_screen.dart';
 import '../models/question.dart';
 
 class MockTestScreen extends StatefulWidget {
-  final String exam;
-  final String topic;
-  final String subject;
-  final String testFile;
-  final String language; // "en" or "te"
+  // --- UPGRADE 1: All parameters are now optional ---
+  final String? exam;
+  final String? topic;
+  final String? subject;
+  final Map<String, dynamic>? testData; // Changed from String? to Map?
+  final String? testFile;               // Added this back for the local file path
+  final String? language;
+
+  // --- UPGRADE 2: New optional parameters are added ---
+  final String? testId;
+  final String? testName;
+  final int? durationMinutes;
+  final List? questions;
 
   const MockTestScreen({
     super.key,
-    required this.exam,
-    required this.topic,
-    required this.subject,
-    required this.testFile,
-    required this.language,
+    this.exam,
+    this.topic,
+    this.subject,
+    this.testData,
+    this.testFile, // Added this
+    this.language,
+    this.testId,
+    this.testName,
+    this.durationMinutes,
+    this.questions,
   });
 
   @override
@@ -27,120 +43,128 @@ class MockTestScreen extends StatefulWidget {
 }
 
 class _MockTestScreenState extends State<MockTestScreen> {
-  List<Question> questions = [];
+  // Your original state variables are all preserved
+  List<dynamic> questions = [];
   List<int?> userAnswers = [];
-  List<Duration> questionTimes = []; // To store time spent on each question
-
+  List<Duration> questionTimes = [];
   bool showNavigator = false;
   int currentQuestionIndex = 0;
   int score = 0;
   int? selectedAnswerIndex;
   late String selectedLanguage;
-
   bool isLoading = true;
 
-  // Timer variables
   late Timer _timer;
-  final Stopwatch _totalStopwatch = Stopwatch(); // Tracks total test time
-  final Stopwatch _questionStopwatch = Stopwatch(); // Tracks current question time
-  Duration _currentQuestionElapsed = Duration.zero; // For display
-  Duration _totalElapsed = Duration.zero; // For display
+  final Stopwatch _totalStopwatch = Stopwatch();
+  final Stopwatch _questionStopwatch = Stopwatch();
+  Duration _currentQuestionElapsed = Duration.zero;
+  Duration _totalElapsed = Duration.zero;
+  int? _remainingSeconds; // For the new countdown timer path
 
   @override
   void initState() {
     super.initState();
-    loadQuestions();
-    selectedLanguage = widget.language;
+    selectedLanguage = widget.language?? 'en';
+
+    // --- UPGRADE 3: The simple logic check ---
+    if (widget.questions != null && widget.questions!.isNotEmpty) {
+      _initializeFromDirectData();
+    } else if (widget.testData != null) {
+      // NEW PATH: Handle the Firestore Map passed from TestListScreen
+      _initializeFromFirestoreData();
+    } else {
+      loadQuestions();
+    }
   }
 
+  // --- NEW FUNCTION: To handle data passed directly from HomeScreen ---
+  void _initializeFromDirectData() {
+    setState(() {
+      questions = widget.questions!;
+      userAnswers = List.filled(questions.length, null);
+      questionTimes = List.filled(questions.length, Duration.zero);
+      // Set the countdown timer if duration is provided
+      if (widget.durationMinutes!= null) {
+        _remainingSeconds = widget.durationMinutes! * 60;
+      }
+      isLoading = false;
+    });
+
+    _startCountdownTimer(); // Use the countdown timer for this path
+    _startQuestionTimer();
+  }
+
+  void _initializeFromFirestoreData() {
+    setState(() {
+      questions = widget.testData!['questions'] ?? [];
+      userAnswers = List.filled(questions.length, null);
+      questionTimes = List.filled(questions.length, Duration.zero);
+
+      // Automatically set the timer based on Admin upload
+      if (widget.testData!['durationMinutes'] != null) {
+        _remainingSeconds = (widget.testData!['durationMinutes'] as int) * 60;
+      }
+      isLoading = false;
+    });
+
+    if (_remainingSeconds != null) {
+      _startCountdownTimer();
+    } else {
+      _startTestTimer();
+    }
+    _startQuestionTimer();
+  }
+
+  // YOUR ORIGINAL FUNCTIONS ARE ALL PRESERVED
   @override
   void dispose() {
-    _timer.cancel(); // Cancel the timer when the widget is disposed
+    _timer.cancel();
     _totalStopwatch.stop();
     _questionStopwatch.stop();
     super.dispose();
   }
 
-  // ================= LOAD QUESTIONS =================
-
   Future<void> loadQuestions() async {
+    if (widget.testFile == null) {
+      setState(() => isLoading = false); return;
+    }
     try {
-      final data = await rootBundle.loadString(widget.testFile);
-
+      final data = await rootBundle.loadString(widget.testFile!);
       List<Question> loadedQuestions = parseQuestions(data);
-
       setState(() {
         questions = loadedQuestions;
         userAnswers = List.filled(questions.length, null);
-        questionTimes = List.filled(questions.length, Duration.zero); // Initialize question times
+        questionTimes = List.filled(questions.length, Duration.zero);
         isLoading = false;
       });
-
-      _startTestTimer(); // Start the timer once questions are loaded
-      _startQuestionTimer(); // Start timer for the first question
-
+      _startTestTimer(); // Original stopwatch timer
+      _startQuestionTimer();
     } catch (e) {
-      // It's good that you're printing the error, consider showing a user-friendly message
       print("Error loading questions: $e");
       setState(() {
         isLoading = false;
-        // Optionally, show a dialog or an error message on the screen
       });
     }
   }
 
-  // ================= PARSE FUNCTION =================
-
   List<Question> parseQuestions(String rawData) {
     List<Question> questionList = [];
-
     List<String> blocks = rawData.split("Q_EN:");
-
     for (int i = 1; i < blocks.length; i++) {
       String block = "Q_EN:" + blocks[i];
-
       String qEn = extract(block, "Q_EN:");
       String qTe = extract(block, "Q_TE:");
       String askedIn = extract(block, "ASKED_IN:");
-
-      List<String> optionsEn = [
-        extract(block, "A_EN:"),
-        extract(block, "B_EN:"),
-        extract(block, "C_EN:"),
-        extract(block, "D_EN:")
-      ];
-
-      List<String> optionsTe = [
-        extract(block, "A_TE:"),
-        extract(block, "B_TE:"),
-        extract(block, "C_TE:"),
-        extract(block, "D_TE:")
-      ];
-
+      List<String> optionsEn = [extract(block, "A_EN:"), extract(block, "B_EN:"), extract(block, "C_EN:"), extract(block, "D_EN:")];
+      List<String> optionsTe = [extract(block, "A_TE:"), extract(block, "B_TE:"), extract(block, "C_TE:"), extract(block, "D_TE:")];
       String answerLetter = extract(block, "ANSWER:");
       int correctIndex = ["A", "B", "C", "D"].indexOf(answerLetter.trim());
-
       String solEn = extract(block, "SOLUTION_EN:");
       String solTe = extract(block, "SOLUTION_TE:");
-
-      questionList.add(
-        Question(
-          questionEn: qEn,
-          questionTe: qTe,
-          optionsEn: optionsEn,
-          optionsTe: optionsTe,
-          correctIndex: correctIndex,
-          solutionEn: solEn,
-          solutionTe: solTe,
-          askedIn: askedIn,
-        ),
-      );
+      questionList.add(Question(questionEn: qEn, questionTe: qTe, optionsEn: optionsEn, optionsTe: optionsTe, correctIndex: correctIndex, solutionEn: solEn, solutionTe: solTe, askedIn: askedIn));
     }
-
     return questionList;
   }
-
-  // ================= HELPER =================
 
   String extract(String text, String key) {
     RegExp reg = RegExp('$key(.*)');
@@ -148,14 +172,30 @@ class _MockTestScreenState extends State<MockTestScreen> {
     return match!= null? match.group(1)!.trim() : "";
   }
 
-  // ================= TIMER LOGIC =================
-
+  // Your original stopwatch timer
   void _startTestTimer() {
     _totalStopwatch.start();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
         setState(() {
           _totalElapsed = _totalStopwatch.elapsed;
+          _currentQuestionElapsed = _questionStopwatch.elapsed;
+        });
+      }
+    });
+  }
+
+  // The new countdown timer
+  void _startCountdownTimer() {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        setState(() {
+          if (_remainingSeconds! > 0) {
+            _remainingSeconds = _remainingSeconds! - 1;
+          } else {
+            timer.cancel();
+            _submitTest(autoSubmitted: true);
+          }
           _currentQuestionElapsed = _questionStopwatch.elapsed;
         });
       }
@@ -169,10 +209,11 @@ class _MockTestScreenState extends State<MockTestScreen> {
 
   void _stopAndSaveQuestionTime() {
     _questionStopwatch.stop();
-    questionTimes[currentQuestionIndex] = _questionStopwatch.elapsed;
+    if(currentQuestionIndex < questionTimes.length) {
+      questionTimes[currentQuestionIndex] = _questionStopwatch.elapsed;
+    }
   }
 
-  // Helper to format duration for display
   String _formatDuration(Duration duration) {
     String twoDigits(int n) => n.toString().padLeft(2, "0");
     String minutes = twoDigits(duration.inMinutes.remainder(60));
@@ -184,21 +225,96 @@ class _MockTestScreenState extends State<MockTestScreen> {
     return "$minutes:$seconds";
   }
 
-  // ================= BUILD =================
+  String _formatSeconds(int totalSeconds) {
+    String twoDigits(int n) => n.toString().padLeft(2, "0");
+    final minutes = twoDigits(totalSeconds ~/ 60);
+    final seconds = twoDigits(totalSeconds % 60);
+    return "$minutes:$seconds";
+  }
+  String _formatQuestionDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, "0");
+    String minutes = twoDigits(duration.inMinutes.remainder(60));
+    String seconds = twoDigits(duration.inSeconds.remainder(60));
+    return "$minutes:$seconds";
+  }
+
+  // --- UPGRADED _submitTest FUNCTION ---
+  void _submitTest({bool autoSubmitted = false}) async {
+    _timer.cancel();
+    _stopAndSaveQuestionTime();
+
+    score = 0;
+    List<Question> resultQuestions = [];
+    for (int i = 0; i < questions.length; i++) {
+      final questionData = questions[i];
+      final bool isFirestoreData = questionData is Map;
+      final int correctIndex = isFirestoreData? (questionData['correctAnswerIndex']?? -1) : (questionData as Question).correctIndex;
+      if (userAnswers[i]!= null && userAnswers[i] == correctIndex) {
+        score++;
+      }
+      if (isFirestoreData) {
+        resultQuestions.add(Question(
+            questionEn: questionData['text_en']?? '',
+            questionTe: questionData['text_te']?? '',
+            optionsEn: List<String>.from(questionData['options_en']?? []),
+            optionsTe: List<String>.from(questionData['options_te']?? []),
+            correctIndex: correctIndex,
+            solutionEn: questionData['solution_en']?? '',
+            solutionTe: questionData['solution_te']?? '',
+            askedIn: ''));
+      } else {
+        resultQuestions.add(questionData as Question);
+      }
+    }
+
+    final Duration totalTimeSpent = _remainingSeconds!= null
+        ? Duration(seconds: (widget.durationMinutes! * 60) - _remainingSeconds!)
+        : _totalElapsed;
+
+    // Call the database service
+    final DatabaseService dbService = DatabaseService();
+    try {
+      await dbService.saveTestResult(
+        testId: widget.testId?? widget.testFile?? 'unknown_test',
+        testName: widget.testName?? widget.subject?? 'Test',
+        score: score,
+        totalQuestions: questions.length,
+        timeTaken: totalTimeSpent,
+        userAnswers: userAnswers,
+      );
+    } catch (e) {
+      print("UI Error saving test result: $e");
+    }
+
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ResultScreen(
+          exam: widget.exam?? widget.testName?? 'Test',
+          topic: widget.topic?? 'General',
+          subject: widget.subject?? 'General',
+          score: score,
+          total: questions.length,
+          questions: resultQuestions,
+          userAnswers: userAnswers,
+          totalTime: totalTimeSpent,
+          questionTimes: questionTimes,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    // YOUR ENTIRE ORIGINAL BUILD METHOD IS HERE, WITH TWO SMALL CHANGES
     final themeNotifier = Provider.of<ThemeNotifier>(context);
     final isDarkTheme = themeNotifier.themeMode == ThemeMode.dark;
 
-    // Define theme-aware colors
     final Color primaryTextColor = isDarkTheme? Colors.white : Colors.black87;
     final Color secondaryTextColor = isDarkTheme? Colors.grey.shade400 : Colors.grey.shade700;
-    final Color questionContainerColor = isDarkTheme? Colors.grey.shade800 : Colors.white; // Unused for now, but good to have
     final Color borderColor = isDarkTheme? Colors.grey.shade600 : Colors.grey.shade300;
     final Color selectedBorderColor = Theme.of(context).primaryColor;
-    final Color correctHighlightColor = Colors.green.shade700; // Constant green, can be made theme-aware if needed
-    final Color incorrectHighlightColor = Colors.red.shade700; // Constant red, can be made theme-aware if needed
     final Color answeredColor = isDarkTheme? Colors.green.shade700 : Colors.green;
     final Color currentQuestionColor = Theme.of(context).primaryColor;
     final Color unselectedAnswerColor = isDarkTheme? Colors.grey.shade800 : Colors.white;
@@ -206,34 +322,41 @@ class _MockTestScreenState extends State<MockTestScreen> {
 
     if (isLoading) {
       return Scaffold(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor, // Theme-aware background
-        body: Center(child: CircularProgressIndicator(color: Theme.of(context).primaryColor)), // Theme-aware indicator
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        body: Center(child: CircularProgressIndicator(color: Theme.of(context).primaryColor)),
       );
     }
 
     if (questions.isEmpty) {
       return Scaffold(
         appBar: AppBar(title: const Text("Mock Test")),
-        body: Center(child: Text("No Questions Available. Check asset paths or JSON.", style: TextStyle(color: primaryTextColor))),
+        body: Center(child: Text("No Questions Available.", style: TextStyle(color: primaryTextColor))),
       );
     }
 
-    final currentQuestion = questions[currentQuestionIndex];
+    final currentQuestionData = questions[currentQuestionIndex];
+    final bool isFirestoreData = currentQuestionData is Map;
+
+    final String qEn = isFirestoreData? (currentQuestionData['text_en']?? '') : (currentQuestionData as Question).questionEn;
+    final String qTe = isFirestoreData? (currentQuestionData['text_te']?? '') : (currentQuestionData as Question).questionTe;
+    final List optionsEn = isFirestoreData? (currentQuestionData['options_en']?? []) : (currentQuestionData as Question).optionsEn;
+    final List optionsTe = isFirestoreData? (currentQuestionData['options_te']?? []) : (currentQuestionData as Question).optionsTe;
+    final String askedIn = isFirestoreData? '' : (currentQuestionData as Question).askedIn;
+
     const double navigatorPanelWidth = 250.0;
-    const double toggleButtonTopPosition = 550.0; // Keep fixed for now
+    const double toggleButtonTopPosition = 550.0;
 
     return Scaffold(
       appBar: AppBar(
-        // Colors from MaterialApp's AppBarTheme
-        title: Text("${widget.subject} Test"),
+        title: Text(widget.testName?? "${widget.subject} Test"), // Smart title
         actions: [
-          // Timer display in AppBar
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8.0),
             child: Center(
               child: Text(
-                _formatDuration(_totalElapsed), // Total time
-                style: TextStyle( // Make Text style theme-aware
+                // Smart timer display
+                _remainingSeconds!= null? _formatSeconds(_remainingSeconds!) : _formatDuration(_totalElapsed),
+                style: TextStyle(
                   color: Theme.of(context).appBarTheme.foregroundColor,
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
@@ -249,7 +372,7 @@ class _MockTestScreenState extends State<MockTestScreen> {
             },
             child: Text(
               selectedLanguage == "en"? "తెలుగు" : "English",
-              style: TextStyle( // Make Text style theme-aware
+              style: TextStyle(
                 color: Theme.of(context).appBarTheme.foregroundColor,
                 fontWeight: FontWeight.bold,
               ),
@@ -259,92 +382,63 @@ class _MockTestScreenState extends State<MockTestScreen> {
       ),
       body: Stack(
         children: [
-          // Main content of the test screen
           Padding(
-            padding: const EdgeInsets.all(16.0), // Keep static padding
+            padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Question index and Current Question Timer
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
                       "Question ${currentQuestionIndex + 1} of ${questions.length}",
-                      style: TextStyle( // Make Text style theme-aware
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: primaryTextColor,
-                      ),
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: primaryTextColor),
                     ),
-                    // Timer for current question
                     Text(
-                      "Q-Time: ${_formatDuration(_currentQuestionElapsed)}",
-                      style: const TextStyle( // Keep red as a constant for urgency
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.red,
-                      ),
+                      "Q-Time: ${_formatQuestionDuration(_currentQuestionElapsed)}",
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.red),
                     ),
                   ],
                 ),
                 const SizedBox(height: 20),
-                ////////////////// QUESTION DISPLAY BOX/////////////////////////
                 Text(
-                  selectedLanguage == "en"
-                      ? currentQuestion.questionEn
-                      : currentQuestion.questionTe,
-                  style: TextStyle(fontSize: 18, color: primaryTextColor), // Make Text style theme-aware
+                  selectedLanguage == "en"? qEn : qTe,
+                  style: TextStyle(fontSize: 18, color: primaryTextColor),
                 ),
                 const SizedBox(height: 8),
-                if (currentQuestion.askedIn.trim().isNotEmpty)
+                if (askedIn.trim().isNotEmpty)
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      color: isDarkTheme? Colors.yellow.shade700 : Colors.yellow.shade100, // Make theme-aware
+                      color: isDarkTheme? Colors.yellow.shade700 : Colors.yellow.shade100,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      "Asked in: ${currentQuestion.askedIn}",
-                      style: TextStyle( // Make Text style theme-aware
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: isDarkTheme? Colors.white : Colors.black87,
-                      ),
+                      "Asked in: $askedIn",
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: isDarkTheme? Colors.white : Colors.black87),
                     ),
                   ),
                 const SizedBox(height: 20),
                 Expanded(
                   child: ListView.builder(
-                    itemCount: currentQuestion.optionsEn.length,
+                    itemCount: optionsEn.length,
                     itemBuilder: (context, index) {
                       List<String> labels = ["A", "B", "C", "D"];
-
-                      // Reset selectedAnswerIndex if user has already answered this question
-                      // and then navigate back. This ensures the correct answer is shown
-                      // when re-visiting a question.
-                      selectedAnswerIndex = userAnswers[currentQuestionIndex];
-
-                      bool isSelected = (selectedAnswerIndex == index);
-
+                      bool isSelected = (userAnswers[currentQuestionIndex] == index);
                       return GestureDetector(
                         onTap: () {
                           setState(() {
-                            selectedAnswerIndex = index;
-                            userAnswers[currentQuestionIndex] = selectedAnswerIndex;
+                            userAnswers[currentQuestionIndex] = index;
                           });
                         },
                         child: Container(
                           margin: const EdgeInsets.only(bottom: 12),
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: isSelected? selectedBorderColor.withOpacity(0.1) : unselectedAnswerColor, // Make theme-aware
+                            color: isSelected? selectedBorderColor.withOpacity(0.1) : unselectedAnswerColor,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: isSelected
-                                  ? selectedBorderColor // Theme primary color
-                                  : borderColor, // Theme-aware border
+                              color: isSelected? selectedBorderColor : borderColor,
                               width: 2,
                             ),
                           ),
@@ -353,26 +447,12 @@ class _MockTestScreenState extends State<MockTestScreen> {
                             children: [
                               Text(
                                 "${labels[index]}. ",
-                                style: TextStyle( // Make Text style theme-aware
-                                  fontWeight: isSelected
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
-                                  fontSize: 16,
-                                  color: primaryTextColor,
-                                ),
+                                style: TextStyle(fontWeight: isSelected? FontWeight.bold : FontWeight.normal, fontSize: 16, color: primaryTextColor),
                               ),
                               Expanded(
                                 child: Text(
-                                  selectedLanguage == "en"
-                                      ? currentQuestion.optionsEn[index]
-                                      : currentQuestion.optionsTe[index],
-                                  style: TextStyle( // Make Text style theme-aware
-                                    fontSize: 16,
-                                    fontWeight: isSelected
-                                        ? FontWeight.bold
-                                        : FontWeight.normal,
-                                    color: primaryTextColor,
-                                  ),
+                                  selectedLanguage == "en"? optionsEn[index] : optionsTe[index],
+                                  style: TextStyle(fontSize: 16, fontWeight: isSelected? FontWeight.bold : FontWeight.normal, color: primaryTextColor),
                                 ),
                               ),
                             ],
@@ -384,135 +464,78 @@ class _MockTestScreenState extends State<MockTestScreen> {
                 ),
                 const SizedBox(height: 10),
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Expanded(
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isDarkTheme? Colors.grey.shade700 : Colors.grey.shade400, // Make theme-aware grey
-                          foregroundColor: primaryTextColor, // Make text color theme-aware
-                        ),
-                        onPressed: currentQuestionIndex == 0
-                            ? null
-                            : () {
-                          setState(() {
-                            _stopAndSaveQuestionTime(); // Save time for current question
-                            currentQuestionIndex--;
-                            selectedAnswerIndex = userAnswers[currentQuestionIndex];
-                            _startQuestionTimer(); // Start timer for new current question
-                          });
-                        },
-                        child: const Text("Previous"), // Text color already handled by foregroundColor
-                      ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(backgroundColor: isDarkTheme? Colors.grey.shade700 : Colors.grey.shade400, foregroundColor: primaryTextColor),
+                      onPressed: currentQuestionIndex == 0? null : () {
+                        setState(() {
+                          _stopAndSaveQuestionTime();
+                          currentQuestionIndex--;
+                          _startQuestionTimer();
+                        });
+                      },
+                      child: const Text("Previous"),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Theme.of(context).primaryColor, // Use theme primary color
-                          foregroundColor: Colors.white, // Keep white for contrast on primary color
-                        ),
-                        onPressed: () { // Always enabled for navigation
-                          _stopAndSaveQuestionTime(); // Save time for current question
-
-                          if (currentQuestionIndex < questions.length - 1) {
-                            setState(() {
-                              currentQuestionIndex++;
-                              selectedAnswerIndex = null;
-                              _startQuestionTimer(); // Start timer for new current question
-                            });
-                          } else {
-                            // End of test
-                            _totalStopwatch.stop(); // Stop total timer
-                            _timer.cancel(); // Cancel periodic timer
-
-                            score = 0;
-                            for (int i = 0; i < questions.length; i++) {
-                              if (userAnswers[i] == questions[i].correctIndex) {
-                                score++;
-                              }
-                            }
-
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => ResultScreen(
-                                  exam: widget.exam, // Pass exam name
-                                  topic: widget.topic, // Pass topic name
-                                  subject: widget.subject, // Pass subject name
-                                  score: score,
-                                  total: questions.length,
-                                  questions: questions,
-                                  userAnswers: userAnswers,
-                                  totalTime: _totalElapsed, // Pass total time
-                                  questionTimes: questionTimes, // Pass individual question times
-                                ),
-                              ),
-                            );
-                          }
-                        },
-                        child: Text( // <--- MODIFIED HERE for "Next" / "Submit Test"
-                          currentQuestionIndex == questions.length - 1
-                              ? "Submit Test"
-                              : "Next",
-                          style: const TextStyle(color: Colors.white), // Set text color to white
-                        ),
-                      ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                      child: const Text("Submit"),
+                      onPressed: () => _submitTest(autoSubmitted: false),
+                    ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).primaryColor, foregroundColor: Colors.white),
+                      onPressed: () {
+                        if (currentQuestionIndex < questions.length - 1) {
+                          setState(() {
+                            _stopAndSaveQuestionTime();
+                            currentQuestionIndex++;
+                            _startQuestionTimer();
+                          });
+                        } else {
+                          _submitTest(autoSubmitted: false);
+                        }
+                      },
+                      child: Text(currentQuestionIndex == questions.length - 1? "Finish" : "Next"),
                     ),
                   ],
                 ),
               ],
             ),
           ),
-
-          // NAVIGATOR PANEL with animation
           AnimatedPositioned(
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeInOut,
-            left: showNavigator? 0 : -navigatorPanelWidth, // Panel slides in/out
+            left: showNavigator? 0 : -navigatorPanelWidth,
             top: 0,
             bottom: 0,
             width: navigatorPanelWidth,
             child: Container(
-              color: navigatorPanelColor, // Make theme-aware
+              color: navigatorPanelColor,
               child: GridView.builder(
                 padding: const EdgeInsets.all(10),
-                gridDelegate:
-                const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 4,
-                  crossAxisSpacing: 6,
-                  mainAxisSpacing: 6,
-                ),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 4, crossAxisSpacing: 6, mainAxisSpacing: 6),
                 itemCount: questions.length,
                 itemBuilder: (context, index) {
                   bool isAnswered = userAnswers[index]!= null;
                   bool isCurrent = currentQuestionIndex == index;
-
                   return GestureDetector(
                     onTap: () {
                       setState(() {
-                        _stopAndSaveQuestionTime(); // Save time for current question
+                        _stopAndSaveQuestionTime();
                         currentQuestionIndex = index;
-                        selectedAnswerIndex = userAnswers[index];
-                        showNavigator = false; // Close panel after selection
-                        _startQuestionTimer(); // Start timer for new current question
+                        showNavigator = false;
+                        _startQuestionTimer();
                       });
                     },
                     child: Container(
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: isCurrent
-                            ? currentQuestionColor // Theme primary color
-                            : isAnswered
-                            ? answeredColor // Theme-aware green
-                            : isDarkTheme? Colors.grey.shade800 : Colors.grey.shade300, // Theme-aware grey
+                        color: isCurrent? currentQuestionColor : isAnswered? answeredColor : isDarkTheme? Colors.grey.shade800 : Colors.grey.shade300,
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
                         "${index + 1}",
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: (isCurrent || isAnswered)? Colors.white : primaryTextColor, // Make text color theme-aware
-                        ),
+                        style: TextStyle(fontWeight: FontWeight.bold, color: (isCurrent || isAnswered)? Colors.white : primaryTextColor),
                       ),
                     ),
                   );
@@ -520,8 +543,6 @@ class _MockTestScreenState extends State<MockTestScreen> {
               ),
             ),
           ),
-
-          // Toggle button (positioned outside the navigator panel itself)
           Positioned(
             top: toggleButtonTopPosition,
             left: 0,
@@ -533,18 +554,11 @@ class _MockTestScreenState extends State<MockTestScreen> {
               },
               child: Container(
                 padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration( // Make theme-aware
-                  color: Theme.of(context).primaryColor, // Use theme primary color
-                  borderRadius: const BorderRadius.only(
-                    topRight: Radius.circular(10),
-                    bottomRight: Radius.circular(10),
-                  ),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).primaryColor,
+                  borderRadius: const BorderRadius.only(topRight: Radius.circular(10), bottomRight: Radius.circular(10)),
                 ),
-                child: Icon(
-                  showNavigator? Icons.arrow_back_ios : Icons.arrow_forward_ios,
-                  color: Theme.of(context).appBarTheme.foregroundColor, // Use theme-aware color
-                  size: 18,
-                ),
+                child: Icon(showNavigator? Icons.arrow_back_ios : Icons.arrow_forward_ios, color: Theme.of(context).appBarTheme.foregroundColor, size: 18),
               ),
             ),
           ),

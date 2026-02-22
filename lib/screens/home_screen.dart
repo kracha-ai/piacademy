@@ -3,9 +3,10 @@
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:provider/provider.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // <--- NEW: Import Firestore
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-import 'exam_screen.dart';
+import 'exam_screen.dart'; // For the Action Grid
+import 'mock_test_screen.dart'; // For the Featured Tests
 import '../services/theme_notifier.dart';
 
 // --- REQUIRED IMPORTS TO MAKE THE DATA CONNECTION WORK ---
@@ -39,7 +40,7 @@ class _PosterSectionState extends State<PosterSection> {
               fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) =>
               const Icon(Icons.broken_image, size: 50),
-            ), // <--- THIS WAS THE MISSING CLOSING PARENTHESIS!
+            ),
           ),
         );
       },
@@ -97,17 +98,9 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 24),
             _ContinueSection(dbService: _dbService),
             _PerformanceSnapshot(dbService: _dbService),
-            // --- NEW: Section to display fetched Firestore Tests ---
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 24, 16, 8),
-              child: Text(
-                "My Firestore Tests",
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-            ),
-            _FirestoreTestDisplay(), // <--- NEW WIDGET CALL
-            // --- END NEW SECTION ---
+
             _FeaturedTests(dbService: _dbService),
+
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 24, 16, 0),
               child: Text(
@@ -135,93 +128,45 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// --- NEW WIDGET TO DISPLAY FIRESTORE TESTS ---
+// --- This widget is not used on this screen, but kept as requested ---
 class _FirestoreTestDisplay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>( // <--- StreamBuilder for real-time updates
-      stream: FirebaseFirestore.instance.collection('physics_test_1').snapshots(), // <--- Get stream of 'tests' collection
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance.collection('tests').snapshots(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Center(child: Text('Error: ${snapshot.error}', style: TextStyle(color: Colors.red)));
         }
-
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Center(child: CircularProgressIndicator());
         }
-
-        // If no tests are found
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
           return Center(child: Padding(
             padding: const EdgeInsets.all(16.0),
-            child: Text('No tests found in Firestore. Add one from the console!'),
+            child: Text('No tests found in Firestore.'),
           ));
         }
-
-        // Display the tests in a ListView
         return ListView.builder(
-          physics: NeverScrollableScrollPhysics(), // Important: to allow parent SingleChildScrollView to work
-          shrinkWrap: true, // Important: to make ListView take only needed space
+          physics: NeverScrollableScrollPhysics(),
+          shrinkWrap: true,
           itemCount: snapshot.data!.docs.length,
           itemBuilder: (context, index) {
             var testDocument = snapshot.data!.docs[index];
             Map<String, dynamic> data = testDocument.data()! as Map<String, dynamic>;
 
-            // Fetch questions subcollection for each test
-            return FutureBuilder<QuerySnapshot>( // <--- FutureBuilder for questions subcollection
-              future: testDocument.reference.collection('questions').get(),
-              builder: (context, questionSnapshot) {
-                if (questionSnapshot.connectionState == ConnectionState.waiting) {
-                  return Card(
-                    margin: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                    child: ListTile(
-                      title: Text(data['name']?? 'Untitled Test'),
-                      subtitle: LinearProgressIndicator(), // Show loading for questions
-                    ),
-                  );
-                }
-
-                if (questionSnapshot.hasError) {
-                  return Card(
-                    margin: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                    child: ListTile(
-                      title: Text(data['name']?? 'Untitled Test'),
-                      subtitle: Text('Error loading questions: ${questionSnapshot.error}', style: TextStyle(color: Colors.red)),
-                    ),
-                  );
-                }
-
-                List<Widget> questionWidgets = [];
-                if (questionSnapshot.hasData && questionSnapshot.data!.docs.isNotEmpty) {
-                  questionSnapshot.data!.docs.forEach((qDoc) {
-                    var qData = qDoc.data() as Map<String, dynamic>;
-                    questionWidgets.add(
-                      Padding(
-                        padding: const EdgeInsets.only(left: 16.0, bottom: 4.0),
-                        child: Text('- ${qData['text']?? 'Untitled Question'}'),
-                      ),
-                    );
-                  });
-                } else {
-                  questionWidgets.add(
-                    Padding(
-                      padding: const EdgeInsets.only(left: 16.0, bottom: 4.0),
-                      child: Text(' No questions for this test.'),
-                    ),
-                  );
-                }
-
-                return Card(
-                  margin: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                  child: ExpansionTile( // Use ExpansionTile to show/hide questions
-                    title: Text(data['name']?? 'Untitled Test', style: TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text('${data['description']?? 'No description'}\n'
-                        'Questions: ${questionSnapshot.data?.docs.length?? 0}, '
-                        'Duration: ${data['duration']?? 'N/A'} mins'),
-                    children: questionWidgets,
-                  ),
-                );
-              },
+            return Card(
+              margin: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              child: ExpansionTile(
+                title: Text(data['name']?? 'Untitled Test', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text('${data['description']?? 'No description'}'),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Text("Total Questions: ${data['totalQuestions']}"),
+                  )
+                ],
+              ),
             );
           },
         );
@@ -229,9 +174,6 @@ class _FirestoreTestDisplay extends StatelessWidget {
     );
   }
 }
-
-// --- Keep your existing _ContinueSection, _PerformanceSnapshot, _FeaturedTests, _ActionGrid classes as they are ---
-//... (your existing classes below)...
 
 class _ContinueSection extends StatelessWidget {
   final DatabaseService dbService;
@@ -345,53 +287,79 @@ class _FeaturedTests extends StatelessWidget {
         const Padding(
           padding: EdgeInsets.fromLTRB(16, 24, 16, 8),
           child: Text(
-            "Start a New Test",
+            "Featured Mock Tests",
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
         ),
         SizedBox(
-          height: 150,
-          child: FutureBuilder<List<FeaturedTest>>(
-            future: dbService.getFeaturedTests(),
+          height: 160,
+          child: StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('tests')
+                .where('isFeatured', isEqualTo: true)
+                .snapshots(),
             builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
+              if (snapshot.hasError) return Center(child: Text("Error loading tests"));
+              if (snapshot.connectionState == ConnectionState.waiting) return Center(child: CircularProgressIndicator());
+
+              final featuredTests = snapshot.data!.docs;
+
+              if (featuredTests.isEmpty) {
+                return const Center(child: Text("No featured tests yet."));
               }
-              if (snapshot.hasError) {
-                return const Center(child: Text("Couldn't load tests."));
-              }
-              if (snapshot.hasData) {
-                final featuredTests = snapshot.data!;
-                return ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: featuredTests.length,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  itemBuilder: (context, index) {
-                    final test = featuredTests[index];
-                    return Card(
-                      clipBehavior: Clip.antiAlias,
-                      child: Container(
-                        width: 220,
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(test.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                            Text(test.details, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                            ElevatedButton(
-                              onPressed: () {},
-                              style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(40)),
-                              child: const Text("Start Test"),
-                            )
-                          ],
-                        ),
+
+              return ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: featuredTests.length,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                itemBuilder: (context, index) {
+                  var data = featuredTests[index].data() as Map<String, dynamic>;
+                  return Card(
+                    clipBehavior: Clip.antiAlias,
+                    child: Container(
+                      width: 220,
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(data['name']?? 'Untitled', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          Text("${data['totalQuestions']} Questions", style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                          ElevatedButton(
+                            // --- THIS IS THE CORRECTED SECTION ---
+                            onPressed: () {
+                              final String testName = data['name']?? 'Untitled Test';
+                              final int duration = data['durationMinutes']?? 30;
+                              final List questions = data['questions']?? [];
+
+                              if (questions.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text("This test has no questions yet!")),
+                                );
+                                return;
+                              }
+
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  // It now correctly calls your upgraded MockTestScreen
+                                  builder: (context) => MockTestScreen(
+                                    testName: testName,
+                                    durationMinutes: duration,
+                                    questions: questions,
+                                  ),
+                                ),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(40)),
+                            child: const Text("Start Test"),
+                          )
+                        ],
                       ),
-                    );
-                  },
-                );
-              }
-              return const SizedBox.shrink();
+                    ),
+                  );
+                },
+              );
             },
           ),
         ),
@@ -406,6 +374,8 @@ class _ActionGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final List<Map<String, dynamic>> gridButtons = [
+      // --- THIS LINE IS NOW CORRECTED ---
+      // It points to your list of exams, which doesn't need any data passed to it.
       {'text': 'Mock Tests', 'iconPath': 'assets/images/test.png', 'targetScreen': (BuildContext context) => const ExamScreen()},
       {'text': 'Courses', 'iconPath': 'assets/images/courses.png', 'targetScreen': null},
       {'text': 'Notes', 'iconPath': 'assets/images/notes.png', 'targetScreen': null},

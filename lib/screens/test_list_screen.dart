@@ -1,9 +1,13 @@
-import 'dart:convert';
+import 'dart:convert'; // Not strictly needed for this file after removing local JSON, but often used.
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart'; // Import provider for theme
-import '../services/theme_notifier.dart'; // Import theme_notifier for theme
+import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // <--- NEW: Import Firebase Auth
+
+import '../services/theme_notifier.dart';
 import 'mock_test_screen.dart';
+import 'home_screen.dart';
 
 class TestListScreen extends StatefulWidget {
   final String exam;
@@ -22,44 +26,29 @@ class TestListScreen extends StatefulWidget {
 }
 
 class _TestListScreenState extends State<TestListScreen> {
-  List<Map<String, dynamic>> testData = []; // Store full test data including file and name
+  String? _currentUserId; // <--- NEW: Variable to hold the current user's ID
 
   @override
   void initState() {
     super.initState();
-    loadTests();
+    _getCurrentUser(); // <--- NEW: Call method to get user ID on init
   }
 
-  Future<void> loadTests() async {
-    String folderPath =
-        "assets/tests/${widget.exam}/${widget.topic}/${widget.subject}/";
-
-    print("Checking folder: $folderPath");
-
-    try {
-      final jsonString = await rootBundle.loadString('${folderPath}tests.json');
-      final Map<String, dynamic> jsonData = json.decode(jsonString);
-      final List<dynamic> tests = jsonData["tests"];
-
+  // <--- NEW: Method to fetch the current user's ID
+  void _getCurrentUser() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user!= null) {
       setState(() {
-        testData = tests.map((test) {
-          // Store both the file path and the display name
-          return {
-            'file': folderPath + (test["file"] as String),
-            'name': test["name"]?? (test["file"] as String).split('/').last.replaceAll(".txt", ""),
-            // Add other potential properties like description, difficulty, duration
-            'description': test["description"]?? "No description available",
-            'difficulty': test["difficulty"]?? "Easy", // Example default
-            'duration': test["duration"]?? "60 min", // Example default
-          };
-        }).toList();
+        _currentUserId = user.uid;
       });
-    } catch (e) {
-      print("Error loading tests from $folderPath: $e");
-      // Handle the error, maybe show a snackbar or an error message to the user
-      setState(() {
-        testData = []; // Ensure list is empty on error
-      });
+    } else {
+      // Handle cases where no user is logged in
+      // For now, we'll just print a message.
+      // In a real app, you might want to redirect to a login screen
+      // or show a specific message to the user.
+      print("No user logged in.");
+      // You might set _currentUserId to a "guest" identifier if anonymous usage is allowed,
+      // but keep in mind guest results won't be tied to a specific persistent user.
     }
   }
 
@@ -68,132 +57,199 @@ class _TestListScreenState extends State<TestListScreen> {
     final themeNotifier = Provider.of<ThemeNotifier>(context);
     final isDarkTheme = themeNotifier.themeMode == ThemeMode.dark;
 
-    // Define text and UI colors that adapt to the theme for consistent look
     final Color textColor = isDarkTheme? Colors.white70 : Colors.black87;
     final Color secondaryTextColor = isDarkTheme? Colors.grey.shade400 : Colors.grey.shade700;
-    final Color iconColor = isDarkTheme? Colors.white70 : Colors.black54;
 
     return Scaffold(
       appBar: AppBar(
         title: Text("${widget.subject} Tests"),
-        // AppBar colors are handled by MaterialApp's AppBarTheme
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.home),
+            onPressed: () {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => const HomeScreen()),
+                    (route) => false, // Clears the backstack
+              );
+            },
+          ),
+        ],
       ),
-      body: testData.isEmpty
-          ? Center(
-        child: Text(
-          "No Tests Available. Check asset paths and JSON data.",
-          style: TextStyle(fontSize: 16, color: textColor),
-          textAlign: TextAlign.center,
-        ),
-      )
-          : ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: testData.length,
-        itemBuilder: (context, index) {
-          final test = testData[index];
-          String filePath = test['file'];
-          String fileName = test['name'];
-          String description = test['description'];
-          String difficulty = test['difficulty'];
-          String duration = test['duration'];
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('tests')
+            .where('exam', isEqualTo: widget.exam)
+            .where('topic', isEqualTo: widget.topic)
+            .where('subject', isEqualTo: widget.subject)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(child: Text("Error: ${snapshot.error}", style: TextStyle(color: Colors.red)));
+          }
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-          return Card(
-            elevation: 4,
-            margin: const EdgeInsets.only(bottom: 16),
-            clipBehavior: Clip.antiAlias,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(15),
-            ),
-            color: Theme.of(context).cardColor, // Use theme's card color
-            child: InkWell(
-              onTap: () async {
-                String? selectedLanguage = await showDialog<String>(
-                  context: context,
-                  builder: (context) {
-                    // Make the AlertDialog theme-aware
-                    return AlertDialog(
-                      backgroundColor: Theme.of(context).cardColor,
-                      title: Text("Select Language", style: TextStyle(color: textColor)),
-                      content: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          ElevatedButton(
-                            onPressed: () => Navigator.pop(context, "en"),
-                            style: ElevatedButton.styleFrom(
-                              foregroundColor: isDarkTheme? Colors.black : Colors.white,
-                              backgroundColor: isDarkTheme? Colors.white : Theme.of(context).primaryColor,
-                              minimumSize: const Size(double.infinity, 40),
-                            ),
-                            child: const Text("English"),
-                          ),
-                          const SizedBox(height: 10),
-                          ElevatedButton(
-                            onPressed: () => Navigator.pop(context, "te"),
-                            style: ElevatedButton.styleFrom(
-                              foregroundColor: isDarkTheme? Colors.black : Colors.white,
-                              backgroundColor: isDarkTheme? Colors.white : Theme.of(context).primaryColor,
-                              minimumSize: const Size(double.infinity, 40),
-                            ),
-                            child: const Text("తెలుగు"),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                );
+          final List<QueryDocumentSnapshot> docs = snapshot.data?.docs?? [];
 
-                if (selectedLanguage!= null) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => MockTestScreen(
-                        exam: widget.exam,
-                        topic: widget.topic,
-                        subject: widget.subject,
-                        testFile: filePath,
-                        language: selectedLanguage,
+          if (docs.isEmpty) {
+            return Center(
+              child: Text(
+                "No Tests Available in Firestore for this subject.",
+                style: TextStyle(fontSize: 16, color: textColor),
+                textAlign: TextAlign.center,
+              ),
+            );
+          }
+
+          // If _currentUserId is null, we can't reliably check completion status.
+          // Display a loading indicator or a message until user ID is available.
+          if (_currentUserId == null) {
+            return const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text("Loading user data to check test status..."),
+                ],
+              ),
+            );
+          }
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: docs.length,
+            itemBuilder: (context, index) {
+              var data = docs[index].data() as Map<String, dynamic>;
+              String testId = docs[index].id;
+
+              return StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('results')
+                    .where('userId', isEqualTo: _currentUserId) // <--- UPDATED: Use the actual _currentUserId
+                    .where('testId', isEqualTo: testId)
+                    .snapshots(),
+                builder: (context, resSnapshot) {
+                  // Check if any results documents exist for this user and test
+                  bool isCompleted = resSnapshot.hasData && resSnapshot.data!.docs.isNotEmpty;
+
+                  return Card(
+                    elevation: 4,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    clipBehavior: Clip.antiAlias,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                    color: Theme.of(context).cardColor,
+                    child: InkWell(
+                      onTap: () => _handleTestSelection(context, data, isDarkTheme, textColor),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    data['name']?? 'Untitled Test',
+                                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textColor),
+                                  ),
+                                ),
+                                if (isCompleted)
+                                  const Row(
+                                    children: [
+                                      Icon(Icons.check_circle, color: Colors.green, size: 18),
+                                      SizedBox(width: 4),
+                                      Text("Completed", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12)),
+                                    ],
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              data['description']?? 'No description available',
+                              style: TextStyle(fontSize: 14, color: secondaryTextColor),
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Icon(Icons.star, size: 16, color: secondaryTextColor),
+                                const SizedBox(width: 4),
+                                Text("${data['difficulty']?? 'Medium'}", style: TextStyle(fontSize: 13, color: secondaryTextColor)),
+                                const SizedBox(width: 16),
+                                Icon(Icons.timer, size: 16, color: secondaryTextColor),
+                                const SizedBox(width: 4),
+                                Text("${data['durationMinutes']?? '60'} min", style: TextStyle(fontSize: 13, color: secondaryTextColor)),
+                                const Spacer(),
+                                // --- Visual indication of action ---
+                                Text(
+                                  isCompleted? "Re-take" : "Start Now",
+                                  style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold),
+                                ),
+                                Icon(Icons.arrow_forward_ios, size: 14, color: Theme.of(context).primaryColor),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   );
-                }
-              },
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      fileName,
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: textColor,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      description,
-                      style: TextStyle(fontSize: 14, color: secondaryTextColor),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Icon(Icons.star, size: 16, color: secondaryTextColor),
-                        const SizedBox(width: 4),
-                        Text("Difficulty: $difficulty", style: TextStyle(fontSize: 13, color: secondaryTextColor)),
-                        const SizedBox(width: 16),
-                        Icon(Icons.timer, size: 16, color: secondaryTextColor),
-                        const SizedBox(width: 4),
-                        Text("Duration: $duration", style: TextStyle(fontSize: 13, color: secondaryTextColor)),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
+                },
+              );
+            },
           );
         },
       ),
+    );
+  }
+
+  Future<void> _handleTestSelection(BuildContext context, Map<String, dynamic> data, bool isDarkTheme, Color textColor) async {
+    String? selectedLanguage = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: Theme.of(context).cardColor,
+          title: Text("Select Language", style: TextStyle(color: textColor)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _languageButton(context, "English", "en", isDarkTheme),
+              const SizedBox(height: 10),
+              _languageButton(context, "తెలుగు", "te", isDarkTheme),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (selectedLanguage!= null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => MockTestScreen(
+            exam: widget.exam,
+            topic: widget.topic,
+            subject: widget.subject,
+            testData: data,
+            language: selectedLanguage,
+          ),
+        ),
+      );
+    }
+  }
+
+  Widget _languageButton(BuildContext context, String label, String code, bool isDark) {
+    return ElevatedButton(
+      onPressed: () => Navigator.pop(context, code),
+      style: ElevatedButton.styleFrom(
+        foregroundColor: isDark? Colors.black : Colors.white,
+        backgroundColor: isDark? Colors.white : Theme.of(context).primaryColor,
+        minimumSize: const Size(double.infinity, 45),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+      child: Text(label),
     );
   }
 }

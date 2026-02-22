@@ -16,7 +16,7 @@ class AppColors {
   static const Color hard = Color(0xFFEF4444);
 }
 
-// --- NEW: Enum to match the one in CreateTestScreen ---
+// Enum to match the one in CreateTestScreen
 enum TestType {
   sectionWise,
   fullSubject,
@@ -48,7 +48,7 @@ class _ViewTestsScreenState extends State<ViewTestsScreen> {
   List<String> subjectOptions = [];
   List<String> sectionOptions = [];
 
-  // --- The "Rulebook" for the hierarchy (copied from CreateTestScreen) ---
+  // --- The "Rulebook" for the hierarchy ---
   final List<String> examOptions = ['RRB', 'SSC', 'UPSC', 'Bank'];
   final List<String> topicOptions = ['Aptitude', 'Reasoning', 'Science', 'GS', 'English'];
   final List<String> difficultyOptions = ['Easy', 'Medium', 'Hard'];
@@ -143,7 +143,6 @@ class _ViewTestsScreenState extends State<ViewTestsScreen> {
                     testType,
                     TestType.values,
                         (val) => setState(() => testType = val),
-                    // --- THE ONLY CORRECTION IS HERE: Using replaceFirstMapped ---
                         (type) => type.name.replaceAllMapped(RegExp(r'(?<=[a-z])[A-Z]'), (match) => ' ${match.group(0)}').replaceFirstMapped(RegExp(r'^\w'), (match) => match.group(0)!.toUpperCase()),
                   ),
 
@@ -186,8 +185,8 @@ class _ViewTestsScreenState extends State<ViewTestsScreen> {
               stream: query.snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-                // The NEW version
                 if (snapshot.hasError) {
+                  print("FULL FIRESTORE ERROR: ${snapshot.error}");
                   return Center(child: Text("An error occurred: ${snapshot.error}"));
                 }
 
@@ -207,13 +206,15 @@ class _ViewTestsScreenState extends State<ViewTestsScreen> {
 
                 if (docs.isEmpty) return const Center(child: Text("No tests found matching your criteria."));
 
-                return GridView.builder(
+                return ListView.builder(
                   padding: const EdgeInsets.all(24),
-                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: 220, mainAxisExtent: 140, crossAxisSpacing: 16, mainAxisSpacing: 16),
                   itemCount: docs.length,
                   itemBuilder: (context, index) {
                     final data = docs[index].data() as Map<String, dynamic>;
-                    return _CompactTestCard(data: data, onDelete: () => _confirmDelete(docs[index].id, data['name']?? 'test'));
+                    return _ExpandableTestTile(
+                      data: data,
+                      onDelete: () => _confirmDelete(docs[index].id, data['name']?? 'test'),
+                    );
                   },
                 );
               },
@@ -224,7 +225,17 @@ class _ViewTestsScreenState extends State<ViewTestsScreen> {
     );
   }
 
+  // --- UPDATED WIDGET: Builds dropdowns with an "All" option ---
   Widget _sidebarDropdown(String label, String? selected, List<String> values, Function(String?) onSelected) {
+    // Create a new list of items that includes the "All" option at the top
+    List<DropdownMenuItem<String>> items = [
+      DropdownMenuItem(
+        value: null, // Selecting this will set the filter to null
+        child: Text("All $label", style: const TextStyle(fontSize: 14, fontStyle: FontStyle.italic)),
+      ),
+      ...values.map((e) => DropdownMenuItem(value: e, child: Text(e, style: const TextStyle(fontSize: 14)))),
+    ];
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Column(
@@ -244,7 +255,7 @@ class _ViewTestsScreenState extends State<ViewTestsScreen> {
               hint: Text("All $label", style: const TextStyle(fontSize: 14)),
               isExpanded: true,
               underline: const SizedBox(),
-              items: values.map((e) => DropdownMenuItem(value: e, child: Text(e, style: const TextStyle(fontSize: 14)))).toList(),
+              items: items, // Use the new list with the "All" option
               onChanged: onSelected,
             ),
           ),
@@ -253,7 +264,17 @@ class _ViewTestsScreenState extends State<ViewTestsScreen> {
     );
   }
 
+  // --- UPDATED WIDGET: Builds Enum dropdowns with an "All" option ---
   Widget _sidebarDropdownEnum<T>(String label, T? selected, List<T> values, Function(T?) onSelected, String Function(T) display) {
+    // Create a new list of items that includes the "All" option
+    List<DropdownMenuItem<T>> items = [
+      DropdownMenuItem(
+        value: null, // This represents the "All" option
+        child: Text("All $label", style: const TextStyle(fontSize: 14, fontStyle: FontStyle.italic)),
+      ),
+      ...values.map((e) => DropdownMenuItem(value: e, child: Text(display(e), style: const TextStyle(fontSize: 14)))),
+    ];
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Column(
@@ -273,7 +294,7 @@ class _ViewTestsScreenState extends State<ViewTestsScreen> {
               hint: Text("All $label", style: const TextStyle(fontSize: 14)),
               isExpanded: true,
               underline: const SizedBox(),
-              items: values.map((e) => DropdownMenuItem(value: e, child: Text(display(e), style: const TextStyle(fontSize: 14)))).toList(),
+              items: items, // Use the new list
               onChanged: onSelected,
             ),
           ),
@@ -297,6 +318,220 @@ class _ViewTestsScreenState extends State<ViewTestsScreen> {
     if (confirm == true) {
       await FirebaseFirestore.instance.collection('tests').doc(id).delete();
     }
+  }
+}
+
+class _ExpandableTestTile extends StatelessWidget {
+  final Map<String, dynamic> data;
+  final VoidCallback onDelete;
+
+  const _ExpandableTestTile({required this.data, required this.onDelete});
+
+  Widget _buildInfoChip(String text, IconData icon) {
+    return Container(
+      margin: const EdgeInsets.only(right: 8, bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: AppColors.secondaryText),
+          const SizedBox(width: 4),
+          Text(text, style: const TextStyle(fontSize: 12, color: AppColors.secondaryText)),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final List questions = data['questions']?? [];
+
+    final String testTypeString = data['testType']?.replaceAllMapped(RegExp(r'(?<=[a-z])[A-Z]'), (match) => ' ${match.group(0)}')?? 'N/A';
+    final String formattedTestType = testTypeString.replaceFirstMapped(RegExp(r'^\w'), (m) => m.group(0)!.toUpperCase());
+    final timestamp = data['createdAt'] as Timestamp?;
+    final String date = timestamp!= null? DateFormat('MMM d, yyyy').format(timestamp.toDate()) : 'N/A';
+    final String testType = data['testType']?? '';
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      elevation: 2,
+      shadowColor: AppColors.border,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      clipBehavior: Clip.antiAlias,
+      child: ExpansionTile(
+        title: Text(
+          data['name']?? 'Untitled',
+          style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryText),
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 8.0),
+          child: Wrap(
+            children: [
+              _buildInfoChip(data['exam']?? 'N/A', Icons.school),
+              _buildInfoChip(formattedTestType, Icons.rule),
+              if (testType!= 'fullMock')
+                _buildInfoChip(data['topic']?? 'N/A', Icons.topic),
+              if (testType!= 'fullMock')
+                _buildInfoChip(data['subject']?? 'N/A', Icons.book),
+              _buildInfoChip(data['difficulty']?? 'N/A', Icons.speed),
+              _buildInfoChip("${questions.length} Qs", Icons.help_outline),
+              _buildInfoChip(date, Icons.calendar_today),
+            ],
+          ),
+        ),
+        trailing: IconButton(
+          icon: const Icon(Icons.delete_outline, color: AppColors.hard),
+          onPressed: onDelete,
+          tooltip: "Delete Test",
+        ),
+        children: <Widget>[
+          const Divider(height: 1, thickness: 1),
+          Container(
+            color: Colors.black.withOpacity(0.02),
+            child: Column(
+              children: [
+                for (int i = 0; i < questions.length; i++)
+                  _QuestionExpansionTile(
+                    questionData: questions[i],
+                    index: i,
+                  ),
+                if (questions.isEmpty)
+                  const Center(child: Padding(padding: EdgeInsets.all(32.0), child: Text("This test has no questions."))),
+              ],
+            ),
+          )
+        ],
+      ),
+    );
+  }
+}
+
+class _QuestionExpansionTile extends StatelessWidget {
+  final Map<String, dynamic> questionData;
+  final int index;
+
+  const _QuestionExpansionTile({required this.questionData, required this.index});
+
+  @override
+  Widget build(BuildContext context) {
+    final int correctIndex = questionData['correctAnswerIndex']?? -1;
+    final List optionsEn = questionData['options_en']?? [];
+
+    return ExpansionTile(
+      leading: CircleAvatar(
+        backgroundColor: AppColors.primaryBlue.withOpacity(0.1),
+        child: Text(
+          '${index + 1}',
+          style: const TextStyle(color: AppColors.primaryBlue, fontWeight: FontWeight.bold, fontSize: 14),
+        ),
+      ),
+      title: Text(questionData['text_en']?? 'No question text', style: const TextStyle(fontWeight: FontWeight.w500)),
+      children: [
+        Container(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          alignment: Alignment.topLeft,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (questionData['text_te']!= null && questionData['text_te'].isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, bottom: 12),
+                  child: Text(questionData['text_te'], style: const TextStyle(fontSize: 16, color: AppColors.secondaryText)),
+                ),
+              const Text("Options:", style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.secondaryText)),
+              const SizedBox(height: 8),
+              for (int i = 0; i < optionsEn.length; i++)
+                ListTile(
+                  dense: true,
+                  leading: Icon(
+                    i == correctIndex? Icons.check_circle : Icons.radio_button_unchecked,
+                    color: i == correctIndex? AppColors.easy : AppColors.secondaryText.withOpacity(0.5),
+                    size: 20,
+                  ),
+                  title: Text(
+                    optionsEn[i],
+                    style: TextStyle(
+                      fontWeight: i == correctIndex? FontWeight.bold : FontWeight.normal,
+                      color: i == correctIndex? AppColors.easy : AppColors.primaryText,
+                    ),
+                  ),
+                ),
+              if (questionData['solution_en']!= null || questionData['solution_te']!= null)...[
+                const Divider(height: 24),
+                const Text("Solution:", style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.secondaryText)),
+                const SizedBox(height: 8),
+                if (questionData['solution_en']!= null)
+                  Text(
+                    "EN: ${questionData['solution_en']}",
+                    style: const TextStyle(color: AppColors.primaryText, fontStyle: FontStyle.italic),
+                  ),
+                if (questionData['solution_te']!= null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4.0),
+                    child: Text(
+                      "TE: ${questionData['solution_te']}",
+                      style: const TextStyle(color: AppColors.secondaryText, fontStyle: FontStyle.italic),
+                    ),
+                  ),
+              ]
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _QuestionDetailView extends StatelessWidget {
+  final Map<String, dynamic> questionData;
+  final int index;
+
+  const _QuestionDetailView({required this.questionData, required this.index});
+
+  @override
+  Widget build(BuildContext context) {
+    final int correctIndex = questionData['correctAnswerIndex']?? -1;
+    final List optionsEn = questionData['options_en']?? [];
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("${index + 1}. ${questionData['text_en']?? 'N/A'}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primaryText)),
+          if (questionData['text_te']!= null)
+            Padding(padding: const EdgeInsets.only(top: 4.0), child: Text(questionData['text_te'], style: const TextStyle(fontSize: 16, color: AppColors.secondaryText))),
+          const Divider(height: 24),
+          const Text("Options:", style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.secondaryText)),
+          const SizedBox(height: 8),
+          for (int i = 0; i < optionsEn.length; i++)
+            ListTile(
+              dense: true,
+              leading: Icon(i == correctIndex? Icons.check_circle : Icons.radio_button_unchecked, color: i == correctIndex? AppColors.easy : AppColors.secondaryText.withOpacity(0.5), size: 20),
+              title: Text(optionsEn[i], style: TextStyle(fontWeight: i == correctIndex? FontWeight.bold : FontWeight.normal, color: i == correctIndex? AppColors.easy : AppColors.primaryText)),
+            ),
+          if (questionData['solution_en']!= null || questionData['solution_te']!= null)...[
+            const Divider(height: 24),
+            const Text("Solution:", style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.secondaryText)),
+            const SizedBox(height: 8),
+            if (questionData['solution_en']!= null)
+              Text("EN: ${questionData['solution_en']}", style: const TextStyle(color: AppColors.primaryText, fontStyle: FontStyle.italic)),
+            if (questionData['solution_te']!= null)
+              Padding(padding: const EdgeInsets.only(top: 4.0), child: Text("TE: ${questionData['solution_te']}", style: const TextStyle(color: AppColors.secondaryText, fontStyle: FontStyle.italic))),
+          ]
+        ],
+      ),
+    );
   }
 }
 

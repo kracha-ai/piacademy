@@ -1,25 +1,21 @@
-// lib/database_service.dart
+// lib/services/database_service.dart
 
 import 'dart:async';
-import '../models/data_models.dart'; // Import our new models
+import '../models/data_models.dart';
 
 class DatabaseService {
 
-  // Simulates fetching the user's overall stats
+  // --- THIS IS YOUR ORIGINAL FUNCTION (UNCHANGED) ---
   Future<UserStats> getUserStats() async {
-    // In a real app, you would query your database here.
-    // We use Future.delayed to simulate a network/database delay.
     await Future.delayed(const Duration(milliseconds: 800));
-
-    // Return real data (or what would be real data)
     return UserStats(
       testsTaken: 37,
-      avgScore: 0.81, // 81%
+      avgScore: 0.81,
       timeSpent: const Duration(hours: 21, minutes: 45),
     );
   }
 
-  // Simulates fetching the list of featured tests
+  // --- THIS IS YOUR ORIGINAL FUNCTION (UNCHANGED) ---
   Future<List<FeaturedTest>> getFeaturedTests() async {
     await Future.delayed(const Duration(milliseconds: 500));
     return [
@@ -29,15 +25,37 @@ class DatabaseService {
     ];
   }
 
-  // Simulates checking if there's an unfinished test
-  // It might return null if there are no unfinished tests.
+  // --- THIS IS YOUR ORIGINAL FUNCTION (UNCHANGED) ---
   Future<UnfinishedTest?> getUnfinishedTest() async {
     await Future.delayed(const Duration(milliseconds: 300));
-
-    // Change this to 'return null;' to see the card disappear!
     return UnfinishedTest(
       name: "Modern Physics Mock Test #2",
       timeIn: const Duration(minutes: 19),
     );
+  }
+
+  // --- THIS IS THE NEW, SIMULATED FUNCTION TO SAVE RESULTS ---
+  Future<void> saveTestResult({
+    required String testId,
+    required String testName,
+    required int score,
+    required int totalQuestions,
+    required Duration timeTaken,
+    required List<int?> userAnswers,
+  }) async {
+    // Simulate a network delay for saving the data
+    await Future.delayed(const Duration(milliseconds: 600));
+
+    // In a real app, this is where you would use FirebaseFirestore.instance.collection(...).add({...})
+    // For now, we just print to the console to confirm it was called correctly.
+    print("--- Test Result Saved (Simulated) ---");
+    print("User ID: [Simulated User]"); // In a real app, you'd get this from FirebaseAuth
+    print("Test ID: $testId");
+    print("Test Name: $testName");
+    print("Score: $score / $totalQuestions");
+    print("Time Taken: ${timeTaken.inMinutes}m ${timeTaken.inSeconds.remainder(60)}s");
+    print("---------------------------------------");
+
+    // We don't need to return anything, but we could return true/false for success
   }
 }
