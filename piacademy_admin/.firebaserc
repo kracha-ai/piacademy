@@ -1,0 +1,15 @@
+{
+  "projects": {
+    "default": "piacademy-app"
+  },
+  "targets": {
+    "piacademy-app": {
+      "hosting": {
+        "piacademy9": [
+          "piacademy9"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}
