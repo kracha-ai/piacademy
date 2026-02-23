@@ -13,14 +13,14 @@ class TestListScreen extends StatefulWidget {
   final String exam;
   final String topic;
   final String subject;
-  final Map<String, List<String>> subjectToSectionsMap; // NEW: Receive this map
+  final Map<String, List<String>> subjectToSectionsMap;
 
   const TestListScreen({
     super.key,
     required this.exam,
     required this.topic,
     required this.subject,
-    required this.subjectToSectionsMap, // NEW: Required in constructor
+    required this.subjectToSectionsMap,
   });
 
   @override
@@ -29,13 +29,13 @@ class TestListScreen extends StatefulWidget {
 
 class _TestListScreenState extends State<TestListScreen> {
   String? _currentUserId;
-  List<String> _sectionsForSubject = []; // NEW: List to hold sections for the current subject
+  List<String> _sectionsForSubject = [];
 
   @override
   void initState() {
     super.initState();
     _getCurrentUser();
-    _loadSectionsForSubject(); // NEW: Load sections when the screen initializes
+    _loadSectionsForSubject();
   }
 
   void _getCurrentUser() {
@@ -49,7 +49,6 @@ class _TestListScreenState extends State<TestListScreen> {
     }
   }
 
-  // NEW: Method to populate _sectionsForSubject
   void _loadSectionsForSubject() {
     setState(() {
       _sectionsForSubject = widget.subjectToSectionsMap[widget.subject]?? [];
@@ -74,16 +73,16 @@ class _TestListScreenState extends State<TestListScreen> {
               Navigator.pushAndRemoveUntil(
                 context,
                 MaterialPageRoute(builder: (context) => const HomeScreen()),
-                    (route) => false, // Clears the backstack
+                    (route) => false,
               );
             },
           ),
         ],
       ),
-      body: Column( // Use Column to place sections above the StreamBuilder
+      body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (_sectionsForSubject.isNotEmpty) // Display sections if available
+          if (_sectionsForSubject.isNotEmpty)
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
@@ -95,27 +94,25 @@ class _TestListScreenState extends State<TestListScreen> {
                   ),
                   const SizedBox(height: 8),
                   Wrap(
-                    spacing: 8.0, // Space between chips
-                    runSpacing: 8.0, // Space between lines of chips
+                    spacing: 8.0,
+                    runSpacing: 8.0,
                     children: _sectionsForSubject.map((sectionName) => Chip(
                       label: Text(sectionName),
                       backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
                       labelStyle: TextStyle(color: Theme.of(context).primaryColor, fontSize: 13),
                     )).toList(),
                   ),
-                  const Divider(height: 32), // Separator
+                  const Divider(height: 32),
                 ],
               ),
             ),
-          Expanded( // Ensure the ListView takes remaining space
+          Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('tests')
                   .where('exam', isEqualTo: widget.exam)
                   .where('topic', isEqualTo: widget.topic)
                   .where('subject', isEqualTo: widget.subject)
-              // Optionally, add a.where('section', isEqualTo: selectedSection) here
-              // if you implement a section filter in this screen.
                   .snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
@@ -258,6 +255,22 @@ class _TestListScreenState extends State<TestListScreen> {
     );
 
     if (selectedLanguage!= null) {
+      // --- START OF CORRECTION ---
+      // Extract the questions from the 'data' map, with proper type casting
+      final List<Map<String, dynamic>> questionsForSelectedTest =
+          (data['questions'] as List?)
+              ?.map((q) => q as Map<String, dynamic>)
+              .toList()?? [];
+
+      // Check if there are questions before navigating
+      if (questionsForSelectedTest.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("This test has no questions yet!")),
+        );
+        return; // Don't navigate if no questions
+      }
+      // --- END OF CORRECTION ---
+
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -267,6 +280,8 @@ class _TestListScreenState extends State<TestListScreen> {
             subject: widget.subject,
             testData: data,
             language: selectedLanguage,
+            // Use the extracted and type-safe questions list
+            questions: questionsForSelectedTest,
           ),
         ),
       );

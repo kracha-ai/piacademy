@@ -13,7 +13,7 @@ import '../services/theme_notifier.dart';
 import '../services/database_service.dart';
 import '../models/data_models.dart';
 
-// --- POSTER SECTION ---
+// --- POSTER SECTION (No changes needed) ---
 class PosterSection extends StatefulWidget {
   const PosterSection({super.key});
   @override
@@ -54,7 +54,7 @@ class _PosterSectionState extends State<PosterSection> {
   }
 }
 
-// --- HOME SCREEN ---
+// --- HOME SCREEN (UPDATED) ---
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -62,8 +62,58 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final DatabaseService _dbService = DatabaseService();
+
+  // 1. State variable to hold the unfinished test data
+  UnfinishedTest? _unfinishedTest;
+
+  @override
+  void initState() {
+    super.initState();
+    // 2. Observe app lifecycle changes (e.g., when app is resumed)
+    WidgetsBinding.instance.addObserver(this);
+    // 3. Check for an unfinished test when the screen loads
+    _checkUnfinishedTest();
+  }
+
+  @override
+  void dispose() {
+    // 4. Clean up the observer
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // 5. Re-check for unfinished tests when the user brings the app to the foreground
+    if (state == AppLifecycleState.resumed) {
+      _checkUnfinishedTest();
+    }
+  }
+
+  /// Fetches unfinished test progress from the local database.
+  void _checkUnfinishedTest() async {
+    final test = await _dbService.getUnfinishedTest();
+    if (mounted) {
+      setState(() {
+        _unfinishedTest = test;
+      });
+    }
+  }
+
+  /// Fetches the full test document from Firestore using its ID.
+  Future<Map<String, dynamic>?> _fetchTestDocument(String testId) async {
+    try {
+      DocumentSnapshot doc = await FirebaseFirestore.instance.collection('tests').doc(testId).get();
+      if (doc.exists) {
+        return doc.data() as Map<String, dynamic>?;
+      }
+    } catch (e) {
+      print("Error fetching test document $testId: $e");
+    }
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -96,11 +146,15 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 16),
             const PosterSection(),
             const SizedBox(height: 24),
-            _ContinueSection(dbService: _dbService),
+            // 6. Pass the loaded test data and fetch function to the _ContinueSection
+            _ContinueSection(
+              dbService: _dbService,
+              unfinishedTest: _unfinishedTest,
+              fetchTestDocument: _fetchTestDocument,
+              onTestResumed: _checkUnfinishedTest, // Pass callback to refresh state
+            ),
             _PerformanceSnapshot(dbService: _dbService),
-
-            _FeaturedTests(dbService: _dbService),
-
+            _FeaturedTests(dbService: _dbService), // Updated below
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 24, 16, 0),
               child: Text(
@@ -128,8 +182,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// --- This widget is not used on this screen, but kept as requested ---
+// --- Firestore Test Display (No changes needed) ---
 class _FirestoreTestDisplay extends StatelessWidget {
+  //... your existing code...
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
@@ -175,54 +230,105 @@ class _FirestoreTestDisplay extends StatelessWidget {
   }
 }
 
+// --- _ContinueSection (UPDATED) ---
 class _ContinueSection extends StatelessWidget {
   final DatabaseService dbService;
-  const _ContinueSection({required this.dbService});
+  final UnfinishedTest? unfinishedTest;
+  final Future<Map<String, dynamic>?> Function(String testId) fetchTestDocument;
+  final VoidCallback onTestResumed; // To refresh the home screen state
+
+  const _ContinueSection({
+    required this.dbService,
+    required this.unfinishedTest,
+    required this.fetchTestDocument,
+    required this.onTestResumed,
+    super.key
+  });
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<UnfinishedTest?>(
-      future: dbService.getUnfinishedTest(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const SizedBox.shrink();
-        }
-        if (snapshot.hasData && snapshot.data!= null) {
-          final unfinishedTest = snapshot.data!;
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: Card(
-              clipBehavior: Clip.antiAlias,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
+    // This widget no longer uses a FutureBuilder; it just displays the data passed to it.
+    if (unfinishedTest == null) {
+      return const SizedBox.shrink(); // If there's no unfinished test, show nothing.
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            children: [
+              const Icon(Icons.history, size: 40, color: Colors.blueAccent),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.history, size: 40, color: Colors.blueAccent),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(unfinishedTest.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 4),
-                          Text("You're ${unfinishedTest.timeIn.inMinutes} minutes in."),
-                        ],
-                      ),
-                    ),
-                    ElevatedButton(onPressed: () {}, child: const Text("Resume")),
+                    Text(unfinishedTest!.testName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 4),
+                    Text("You're ${unfinishedTest!.timeIn.inMinutes} mins in. Q${unfinishedTest!.currentQuestionIndex + 1}."),
                   ],
                 ),
               ),
-            ),
-          );
-        }
-        return const SizedBox.shrink();
-      },
+              ElevatedButton(
+                onPressed: () async {
+                  // 1. Fetch the full test data from Firestore
+                  final testDoc = await fetchTestDocument(unfinishedTest!.testId);
+
+                  if (testDoc!= null) {
+                    // 2. Extract the data needed by MockTestScreen
+                    final String testName = testDoc['name']?? 'Untitled Test';
+                    final int duration = testDoc['durationMinutes']?? 30;
+                    final List<Map<String, dynamic>> questions =
+                        (testDoc['questions'] as List?)
+                            ?.map((q) => q as Map<String, dynamic>)
+                            .toList()?? [];
+
+                    if (questions.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error: Test has no questions.")));
+                      await dbService.clearUnfinishedTest();
+                      onTestResumed(); // Refresh home screen to hide this section
+                      return;
+                    }
+
+                    // 3. Navigate to MockTestScreen. It will handle loading the progress.
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => MockTestScreen(
+                          testId: unfinishedTest!.testId, // Crucial for loading progress
+                          testName: testName,
+                          durationMinutes: duration,
+                          questions: questions,
+                        ),
+                      ),
+                    );
+                    // 4. After returning from MockTestScreen, refresh the home screen state
+                    onTestResumed();
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Could not find test. It may have been deleted.")),
+                    );
+                    // Clear the invalid progress from the local DB
+                    await dbService.clearUnfinishedTest();
+                    onTestResumed();
+                  }
+                },
+                child: const Text("Resume"),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
 
+// --- _PerformanceSnapshot (No changes needed) ---
 class _PerformanceSnapshot extends StatelessWidget {
+  //... your existing code...
   final DatabaseService dbService;
   const _PerformanceSnapshot({required this.dbService});
 
@@ -275,6 +381,7 @@ class _PerformanceSnapshot extends StatelessWidget {
   }
 }
 
+// --- _FeaturedTests (UPDATED) ---
 class _FeaturedTests extends StatelessWidget {
   final DatabaseService dbService;
   const _FeaturedTests({required this.dbService});
@@ -302,7 +409,7 @@ class _FeaturedTests extends StatelessWidget {
               if (snapshot.hasError) return Center(child: Text("Error loading tests"));
               if (snapshot.connectionState == ConnectionState.waiting) return Center(child: CircularProgressIndicator());
 
-              final featuredTests = snapshot.data!.docs;
+              final featuredTests = snapshot.data?.docs?? [];
 
               if (featuredTests.isEmpty) {
                 return const Center(child: Text("No featured tests yet."));
@@ -314,6 +421,9 @@ class _FeaturedTests extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 itemBuilder: (context, index) {
                   var data = featuredTests[index].data() as Map<String, dynamic>;
+                  // 7. Get the Firestore document ID to use as testId
+                  String testId = featuredTests[index].id;
+
                   return Card(
                     clipBehavior: Clip.antiAlias,
                     child: Container(
@@ -324,13 +434,15 @@ class _FeaturedTests extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(data['name']?? 'Untitled', style: const TextStyle(fontWeight: FontWeight.bold)),
-                          Text("${data['totalQuestions']} Questions", style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                          Text("${data['totalQuestions']?? 0} Questions", style: const TextStyle(fontSize: 12, color: Colors.grey)),
                           ElevatedButton(
-                            // --- THIS IS THE CORRECTED SECTION ---
                             onPressed: () {
                               final String testName = data['name']?? 'Untitled Test';
                               final int duration = data['durationMinutes']?? 30;
-                              final List questions = data['questions']?? [];
+                              final List<Map<String, dynamic>> questions =
+                                  (data['questions'] as List?)
+                                      ?.map((q) => q as Map<String, dynamic>)
+                                      .toList()?? [];
 
                               if (questions.isEmpty) {
                                 ScaffoldMessenger.of(context).showSnackBar(
@@ -342,8 +454,9 @@ class _FeaturedTests extends StatelessWidget {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  // It now correctly calls your upgraded MockTestScreen
                                   builder: (context) => MockTestScreen(
+                                    // 8. PASS THE testId TO MOCKTESTSCREEN
+                                    testId: testId,
                                     testName: testName,
                                     durationMinutes: duration,
                                     questions: questions,
@@ -368,7 +481,9 @@ class _FeaturedTests extends StatelessWidget {
   }
 }
 
+// --- _ActionGrid (No changes needed) ---
 class _ActionGrid extends StatelessWidget {
+  //... your existing code...
   const _ActionGrid();
 
   @override

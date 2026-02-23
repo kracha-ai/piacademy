@@ -60,21 +60,21 @@ class _ViewTestsScreenState extends State<ViewTestsScreen> {
       "description": "15 Full Tests, 50+ Practice Sets",
       "avgScore": 0.75, // Represents 75%
       "color": Colors.red, // MaterialColor
-      "topics": ['Aptitude', 'Reasoning', 'GS', 'Science'], // Topics specific to RRB
+      "topics": ['Aptitude', 'Reasoning', 'General Studies', 'Science'], // Topics specific to RRB
     },
     {
       "name": "SSC",
       "description": "25 Full Tests, 120+ Practice Sets",
       "avgScore": 0.68, // Represents 68%
       "color": Colors.purple, // MaterialColor
-      "topics": ['Aptitude', 'Reasoning', 'GS', 'English', 'Science'], // Topics specific to SSC
+      "topics": ['Aptitude', 'Reasoning', 'General Studies', 'English', 'Science'], // Topics specific to SSC
     },
     {
       "name": "UPSC",
       "description": "10 Full Tests, 80+ Practice Sets",
       "avgScore": 0.82, // Represents 82%
       "color": Colors.green, // MaterialColor
-      "topics": ['GS', 'English'], // Topics specific to UPSC
+      "topics": ['General Studies', 'English'], // Topics specific to UPSC
     },
     {
       "name": "Bank",
@@ -89,7 +89,7 @@ class _ViewTestsScreenState extends State<ViewTestsScreen> {
     'Aptitude': ['Number System', 'Arithmetic', 'Time & Speed/Work', 'Algebra', 'Geometry & Mensuration', 'Data Interpretation (DI)', 'Modern Math'],
     'Reasoning': ['Verbal Reasoning', 'Analytical/Logical Reasoning', 'Non-Verbal & Spatial Reasoning', 'Puzzles & Arrangements'],
     'Science': ['Physics', 'Chemistry', 'Biology', 'Technology/Misc'],
-    'GS': ['Indian History', 'Geography', 'Indian Polity', 'Economy', 'Current Affairs', 'Static GK'],
+    'General Studies': ['Indian History', 'Geography', 'Indian Polity', 'Economy', 'Current Affairs', 'Static GK'],
     'English': ['Reading Comprehension', 'Grammar', 'Vocabulary', 'Sentence Structure']
   };
 
@@ -129,10 +129,8 @@ class _ViewTestsScreenState extends State<ViewTestsScreen> {
           (e) => e['name'] == exam,
       orElse: () => {"topics": <String>[]},
     );
-    // FIX: Corrected type casting to avoid syntax error
-    // It should be `as List<dynamic>?` and then `?? []`
     return List<String>.from(
-      (selectedExamData['topics'] as List<dynamic>?) ?? [],
+      (selectedExamData['topics'] as List<dynamic>?)?? [],
     );
   }
 
@@ -182,7 +180,7 @@ class _ViewTestsScreenState extends State<ViewTestsScreen> {
     });
   }
 
-  // NEW: Method to handle editing a question (kept as is)
+  // Method to handle editing a question
   Future<void> _editQuestion(String testId, int questionIndex, Map<String, dynamic> initialQuestionData) async {
     final Map<String, dynamic>? updatedQuestion = await Navigator.push(
       context,
@@ -199,14 +197,13 @@ class _ViewTestsScreenState extends State<ViewTestsScreen> {
 
       if (testDoc.exists) {
         final Map<String, dynamic> currentTestData = testDoc.data() as Map<String, dynamic>;
-        // Create a modifiable list from the Firestore list
         final List<dynamic> questions = List.from(currentTestData['questions']?? []);
 
         if (questionIndex >= 0 && questionIndex < questions.length) {
-          questions[questionIndex] = updatedQuestion; // Update the specific question
+          questions[questionIndex] = updatedQuestion;
           await testRef.update({
             'questions': questions,
-            'updatedAt': FieldValue.serverTimestamp(), // Optional: add an update timestamp
+            'updatedAt': FieldValue.serverTimestamp(),
           });
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Question updated successfully!')),
@@ -221,6 +218,22 @@ class _ViewTestsScreenState extends State<ViewTestsScreen> {
           const SnackBar(content: Text('Error: Test document not found.')),
         );
       }
+    }
+  }
+
+  // --- NEW: Method to toggle featured status ---
+  Future<void> _toggleFeaturedStatus(String testId, bool currentStatus) async {
+    try {
+      await FirebaseFirestore.instance.collection('tests').doc(testId).update({
+        'isFeatured':!currentStatus,
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Test featured status updated to ${!currentStatus? 'featured' : 'not featured'}')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update featured status: $e')),
+      );
     }
   }
 
@@ -282,10 +295,8 @@ class _ViewTestsScreenState extends State<ViewTestsScreen> {
                         (type) => type.name.replaceAllMapped(RegExp(r'(?<=[a-z])[A-Z]'), (match) => ' ${match.group(0)}').replaceFirstMapped(RegExp(r'^\w'), (match) => match.group(0)!.toUpperCase()),
                   ),
 
-                  // NEW: Use _getExamNames() for exam options
                   _sidebarDropdown("Exam", exam, _getExamNames(), _onExamChanged),
                   if (testType!= TestType.fullMock)...[
-                    // NEW: Use _getTopicOptionsForSelectedExam() for topic options
                     _sidebarDropdown("Topic", topic, _getTopicOptionsForSelectedExam(), _onTopicChanged),
                     if (topic!= null)
                       _sidebarDropdown("Subject", subject, subjectOptions, _onSubjectChanged),
@@ -354,6 +365,7 @@ class _ViewTestsScreenState extends State<ViewTestsScreen> {
                       data: data,
                       onDelete: () => _confirmDelete(currentTestId, data['name']?? 'test'),
                       onEditQuestion: _editQuestion,
+                      onToggleFeatured: _toggleFeaturedStatus, // <--- PASSED THE NEW CALLBACK
                     );
                   },
                 );
@@ -365,12 +377,10 @@ class _ViewTestsScreenState extends State<ViewTestsScreen> {
     );
   }
 
-  // --- UPDATED WIDGET: Builds dropdowns with an "All" option ---
   Widget _sidebarDropdown(String label, String? selected, List<String> values, Function(String?) onSelected) {
-    // Create a new list of items that includes the "All" option at the top
     List<DropdownMenuItem<String>> items = [
       DropdownMenuItem(
-        value: null, // Selecting this will set the filter to null
+        value: null,
         child: Text("All $label", style: const TextStyle(fontSize: 14, fontStyle: FontStyle.italic)),
       ),
       ...values.map((e) => DropdownMenuItem(value: e, child: Text(e, style: const TextStyle(fontSize: 14)))),
@@ -404,12 +414,10 @@ class _ViewTestsScreenState extends State<ViewTestsScreen> {
     );
   }
 
-  // --- UPDATED WIDGET: Builds Enum dropdowns with an "All" option ---
   Widget _sidebarDropdownEnum<T>(String label, T? selected, List<T> values, Function(T?) onSelected, String Function(T) display) {
-    // Create a new list of items that includes the "All" option
     List<DropdownMenuItem<T>> items = [
       DropdownMenuItem(
-        value: null, // This represents the "All" option
+        value: null,
         child: Text("All $label", style: const TextStyle(fontSize: 14, fontStyle: FontStyle.italic)),
       ),
       ...values.map((e) => DropdownMenuItem(value: e, child: Text(display(e), style: const TextStyle(fontSize: 14)))),
@@ -466,28 +474,31 @@ class _ExpandableTestTile extends StatelessWidget {
   final Map<String, dynamic> data;
   final VoidCallback onDelete;
   final Function(String testId, int questionIndex, Map<String, dynamic> initialQuestionData) onEditQuestion;
+  final Function(String testId, bool currentStatus) onToggleFeatured; // <--- ADDED THIS
 
   const _ExpandableTestTile({
     required this.testId,
     required this.data,
     required this.onDelete,
     required this.onEditQuestion,
+    required this.onToggleFeatured, // <--- ADDED THIS
   });
 
-  Widget _buildInfoChip(String text, IconData icon) {
+  Widget _buildInfoChip(String text, IconData icon, {Color? color}) {
     return Container(
       margin: const EdgeInsets.only(right: 8, bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: AppColors.background,
+        color: color?.withOpacity(0.1)?? AppColors.background, // Use provided color with opacity or default
         borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color?? AppColors.border), // Use provided color or default
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12, color: AppColors.secondaryText),
+          Icon(icon, size: 12, color: color?? AppColors.secondaryText),
           const SizedBox(width: 4),
-          Text(text, style: const TextStyle(fontSize: 12, color: AppColors.secondaryText)),
+          Text(text, style: TextStyle(fontSize: 12, color: color?? AppColors.secondaryText)),
         ],
       ),
     );
@@ -496,6 +507,7 @@ class _ExpandableTestTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final List questions = data['questions']?? [];
+    final bool isFeatured = data['isFeatured']?? false; // <--- Get current status
 
     final String testTypeString = data['testType']?.replaceAllMapped(RegExp(r'(?<=[a-z])[A-Z]'), (match) => ' ${match.group(0)}')?? 'N/A';
     final String formattedTestType = testTypeString.replaceFirstMapped(RegExp(r'^\w'), (m) => m.group(0)!.toUpperCase());
@@ -514,21 +526,44 @@ class _ExpandableTestTile extends StatelessWidget {
           data['name']?? 'Untitled',
           style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryText),
         ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 8.0),
-          child: Wrap(
-            children: [
-              _buildInfoChip(data['exam']?? 'N/A', Icons.school),
-              _buildInfoChip(formattedTestType, Icons.rule),
-              if (testType!= 'fullMock')
-                _buildInfoChip(data['topic']?? 'N/A', Icons.topic),
-              if (testType!= 'fullMock')
-                _buildInfoChip(data['subject']?? 'N/A', Icons.book),
-              _buildInfoChip(data['difficulty']?? 'N/A', Icons.speed),
-              _buildInfoChip("${questions.length} Qs", Icons.help_outline),
-              _buildInfoChip(date, Icons.calendar_today),
-            ],
-          ),
+        subtitle: Column( // Use Column to stack chips and switch
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: Wrap(
+                children: [
+                  _buildInfoChip(data['exam']?? 'N/A', Icons.school),
+                  _buildInfoChip(formattedTestType, Icons.rule),
+                  if (testType!= 'fullMock')
+                    _buildInfoChip(data['topic']?? 'N/A', Icons.topic),
+                  if (testType!= 'fullMock')
+                    _buildInfoChip(data['subject']?? 'N/A', Icons.book),
+                  _buildInfoChip(data['difficulty']?? 'N/A', Icons.speed),
+                  _buildInfoChip("${questions.length} Qs", Icons.help_outline),
+                  _buildInfoChip(date, Icons.calendar_today),
+                  // --- NEW: Featured status chip ---
+                  if (isFeatured)
+                    _buildInfoChip('Featured', Icons.star, color: Colors.amber[800]),
+                ],
+              ),
+            ),
+            // --- NEW: Switch for Featured status ---
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: Row(
+                children: [
+                  const Text("Featured:", style: TextStyle(fontSize: 13, color: AppColors.secondaryText)),
+                  const SizedBox(width: 8),
+                  Switch(
+                    value: isFeatured,
+                    onChanged: (newValue) => onToggleFeatured(testId, isFeatured),
+                    activeColor: AppColors.primaryBlue,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
         trailing: IconButton(
           icon: const Icon(Icons.delete_outline, color: AppColors.hard),
@@ -576,6 +611,8 @@ class _QuestionExpansionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final int correctIndex = questionData['correctAnswerIndex']?? -1;
     final List optionsEn = questionData['options_en']?? [];
+    final String? category = questionData['category'];
+    final String? askedIn = questionData['asked_in']; // Get askedIn
 
     return ExpansionTile(
       leading: CircleAvatar(
@@ -586,6 +623,21 @@ class _QuestionExpansionTile extends StatelessWidget {
         ),
       ),
       title: Text(questionData['text_en']?? 'No question text', style: const TextStyle(fontWeight: FontWeight.w500)),
+      subtitle: Column( // Use column to display multiple subtitle lines
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (category!= null && category.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 4.0),
+              child: Text('Category: $category', style: const TextStyle(fontSize: 12, color: AppColors.secondaryText)),
+            ),
+          if (askedIn!= null && askedIn.isNotEmpty) // Display askedIn here
+            Padding(
+              padding: const EdgeInsets.only(top: 4.0),
+              child: Text('Asked In: $askedIn', style: const TextStyle(fontSize: 12, color: AppColors.secondaryText)),
+            ),
+        ],
+      ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -607,6 +659,16 @@ class _QuestionExpansionTile extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(top: 4, bottom: 12),
                   child: Text(questionData['text_te'], style: const TextStyle(fontSize: 16, color: AppColors.secondaryText)),
+                ),
+              if (category!= null && category.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: Text("Category: $category", style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryBlue)),
+                ),
+              if (askedIn!= null && askedIn.isNotEmpty) // Display askedIn in expanded view too
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: Text("Asked In: $askedIn", style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryBlue)),
                 ),
               const Text("Options:", style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.secondaryText)),
               const SizedBox(height: 8),
@@ -662,6 +724,8 @@ class _QuestionDetailView extends StatelessWidget {
   Widget build(BuildContext context) {
     final int correctIndex = questionData['correctAnswerIndex']?? -1;
     final List optionsEn = questionData['options_en']?? [];
+    final String? category = questionData['category'];
+    final String? askedIn = questionData['asked_in']; // Get askedIn
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
@@ -677,6 +741,16 @@ class _QuestionDetailView extends StatelessWidget {
           Text("${index + 1}. ${questionData['text_en']?? 'N/A'}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primaryText)),
           if (questionData['text_te']!= null)
             Padding(padding: const EdgeInsets.only(top: 4.0), child: Text(questionData['text_te'], style: const TextStyle(fontSize: 16, color: AppColors.secondaryText))),
+          if (category!= null && category.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
+              child: Text("Category: $category", style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryBlue)),
+            ),
+          if (askedIn!= null && askedIn.isNotEmpty) // Display askedIn here
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
+              child: Text("Asked In: $askedIn", style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryBlue)),
+            ),
           const Divider(height: 24),
           const Text("Options:", style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.secondaryText)),
           const SizedBox(height: 8),
@@ -770,6 +844,8 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
   late TextEditingController _questionTextTeController;
   late TextEditingController _solutionEnController;
   late TextEditingController _solutionTeController;
+  late TextEditingController _categoryController;
+  late TextEditingController _askedInController;
 
   List<TextEditingController> _optionEnControllers = [];
   List<TextEditingController> _optionTeControllers = [];
@@ -782,6 +858,8 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
     _questionTextTeController = TextEditingController(text: widget.initialQuestionData['text_te']);
     _solutionEnController = TextEditingController(text: widget.initialQuestionData['solution_en']);
     _solutionTeController = TextEditingController(text: widget.initialQuestionData['solution_te']);
+    _categoryController = TextEditingController(text: widget.initialQuestionData['category']);
+    _askedInController = TextEditingController(text: widget.initialQuestionData['asked_in']);
 
     _correctAnswerIndex = widget.initialQuestionData['correctAnswerIndex']?? -1;
 
@@ -815,6 +893,8 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
     _questionTextTeController.dispose();
     _solutionEnController.dispose();
     _solutionTeController.dispose();
+    _categoryController.dispose();
+    _askedInController.dispose();
     for (var controller in _optionEnControllers) {
       controller.dispose();
     }
@@ -857,9 +937,11 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
       'text_te': _questionTextTeController.text.trim(),
       'solution_en': _solutionEnController.text.trim(),
       'solution_te': _solutionTeController.text.trim(),
+      'asked_in': _askedInController.text.trim(),
       'options_en': _optionEnControllers.map((c) => c.text.trim()).toList(),
       'options_te': _optionTeControllers.map((c) => c.text.trim()).toList(),
       'correctAnswerIndex': _correctAnswerIndex,
+      'category': _categoryController.text.trim().isNotEmpty? _categoryController.text.trim() : null,
     };
     Navigator.pop(context, updatedQuestion);
   }
@@ -897,6 +979,34 @@ class _EditQuestionScreenState extends State<EditQuestionScreen> {
               controller: _questionTextTeController,
               decoration: InputDecoration(
                 hintText: "Enter question in Telugu (optional)",
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                filled: true,
+                fillColor: AppColors.background,
+              ),
+              maxLines: null,
+            ),
+            const SizedBox(height: 24),
+
+            Text("Asked In (e.g., RRB NTPC 2021)", style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryText)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _askedInController,
+              decoration: InputDecoration(
+                hintText: "Enter where this question was asked (optional)",
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                filled: true,
+                fillColor: AppColors.background,
+              ),
+              maxLines: null,
+            ),
+            const SizedBox(height: 24),
+
+            Text("Category (Optional)", style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryText)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _categoryController,
+              decoration: InputDecoration(
+                hintText: "e.g., Divisibility Rules, Pythagoras Theorem",
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                 filled: true,
                 fillColor: AppColors.background,

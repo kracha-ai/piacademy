@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/theme_notifier.dart';
 import '../models/question.dart';
-// import 'dart:math'; // Not strictly needed for this version
 
 class ResultScreen extends StatefulWidget {
   final String exam;
@@ -334,6 +333,20 @@ class _ResultScreenState extends State<ResultScreen> {
                               fontSize: 13,
                             ),
                           ),
+                          // --- ADDED CATEGORY DISPLAY HERE ---
+                          if (question.category!= null && question.category!.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4.0),
+                              child: Text(
+                                "Category: ${question.category}",
+                                style: TextStyle(
+                                  color: secondaryTextColor,
+                                  fontSize: 13,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ),
+                          // --- END ADDED CATEGORY DISPLAY ---
                         ],
                       ),
                       children: [

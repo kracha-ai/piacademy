@@ -12,7 +12,6 @@ class CreateTestScreen extends StatefulWidget {
   State<CreateTestScreen> createState() => _CreateTestScreenState();
 }
 
-// --- NEW: An Enum to clearly define the different types of tests you can create ---
 enum TestType {
   sectionWise,
   fullSubject,
@@ -27,10 +26,8 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
   final _durationController = TextEditingController();
   final _totalQuestionsController = TextEditingController();
 
-  // --- NEW: State variable for the main Test Type selector ---
   TestType _selectedTestType = TestType.sectionWise;
 
-  // --- State variables for the 4-level hierarchy ---
   late String _selectedExam;
   late String _selectedTopic;
   late String _selectedSubject;
@@ -41,7 +38,6 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
   late List<String> _sectionOptions;
 
   bool _isFeatured = false;
-  // --- NEW: State for the topic grouping switch. Default is ON. ---
   bool _groupPerTopic = true;
   bool _isLoading = false;
 
@@ -50,24 +46,19 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
   static const Color primaryBlue = Color(0xFF1A73E8);
   static const Color bgGrey = Color(0xFFF8F9FA);
 
-  // --- The "Rulebook" for your hierarchy ---
-  // Level 1
   final List<String> examOptions = ['RRB', 'SSC', 'UPSC', 'Bank'];
 
-  // Level 2
-  final List<String> topicOptions = ['Aptitude', 'Reasoning', 'Science', 'GS', 'English'];
+  final List<String> topicOptions = ['Aptitude', 'Reasoning', 'Science', 'General Studies', 'English'];
   final List<String> difficultyOptions = ['Easy', 'Medium', 'Hard'];
 
-  // Level 3: Maps a Topic to its list of Subjects
   final Map<String, List<String>> topicToSubjectsMap = {
     'Aptitude': ['Number System', 'Arithmetic', 'Time & Speed/Work', 'Algebra', 'Geometry & Mensuration', 'Data Interpretation (DI)', 'Modern Math'],
     'Reasoning': ['Verbal Reasoning', 'Analytical/Logical Reasoning', 'Non-Verbal & Spatial Reasoning', 'Puzzles & Arrangements'],
     'Science': ['Physics', 'Chemistry', 'Biology', 'Technology/Misc'],
-    'GS': ['Indian History', 'Geography', 'Indian Polity', 'Economy', 'Current Affairs', 'Static GK'],
+    'General Studies': ['Indian History', 'Geography', 'Indian Polity', 'Economy', 'Current Affairs', 'Static GK'],
     'English': ['Reading Comprehension', 'Grammar', 'Vocabulary', 'Sentence Structure']
   };
 
-  // Level 4: Maps a Subject to its list of Sections
   final Map<String, List<String>> subjectToSectionsMap = {
     'Number System': ['Divisibility rules', 'HCF & LCM', 'Prime Numbers', 'Fractions/Decimals'],
     'Arithmetic': ['Percentages', 'Profit & Loss', 'Discount', 'Simple & Compound Interest', 'Average', 'Ratio & Proportion', 'Mixture & Alligation', 'Partnerships', 'Ages'],
@@ -87,7 +78,7 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
     'Indian History': ['Ancient', 'Medieval', 'Modern History'],
     'Geography': ['Physical', 'Indian', 'World Geography'],
     'Indian Polity': ['Constitution of India', 'Fundamental Rights', 'Parliament', 'Judiciary', 'Panchayati Raj'],
-    'Economy': ['Basics of Indian Economy', 'Banking System', 'Budget', 'Taxation', 'GDP', 'Inflation'],
+    'Economy': ['Basics of Indian Economy', 'Banking System', 'RBI Functions', 'Budget', 'Taxation', 'GDP', 'Inflation'],
     'Current Affairs': ['National & International News', 'Government Schemes', 'Sports', 'Awards & Honors', 'Appointments'],
     'Static GK': ['Important Dates', 'Books & Authors', 'Capitals & Currencies', 'Organizations'],
     'Reading Comprehension': ['Passage Theme', 'Inference', 'Tone', 'Vocabulary'],
@@ -96,15 +87,43 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
     'Sentence Structure': ['Sentence Rearrangement (Para Jumbles)', 'Cloze Test', 'Fill in the Blanks']
   };
 
+  final Map<String, List<String>> sectionToCategoryMap = {
+    'Number System': ['Types of Numbers (Natural, Whole, Integers)', 'Divisibility Rules Detailed', 'HCF Advanced Problems', 'LCM Applications', 'Prime Factorization', 'Recurring Decimals', 'Simplification & BODMAS', 'Remainder Concept'],
+    'Arithmetic': ['Percentage to Fraction Conversion', 'Successive Percentage', 'Profit & Loss with Marked Price', 'Discount with GST', 'Simple Interest Applications', 'Compound Interest (Yearly/Half-yearly)', 'Ratio & Proportion Concept', 'Alligation Rule', 'Partnership with Time Factor', 'Ages (Linear Equation Method)'],
+    'Time and Work': ['Efficiency Concept', 'Work Equivalence Method', 'Pipes with Leakage', 'Alternate Day Work', 'Man-Days Concept'],
+    'Time, Speed & Distance': ['Relative Speed', 'Average Speed Concept', 'Boats Upstream/Downstream', 'Train Crossing Pole', 'Train Crossing Platform'],
+    'Algebra': ['Linear Equations', 'Quadratic Equations', 'Nature of Roots', 'Algebraic Identities', 'Surds & Indices', 'Logarithm Laws'],
+    'Geometry & Mensuration': ['Pythagoras Theorem', 'Similarity of Triangles', 'Circle Theorems', 'Tangent & Chord Properties', 'Area & Perimeter (2D)', 'Volume & Surface Area (3D)', 'Coordinate Geometry Basics'],
+    'Data Interpretation (DI)': ['Bar Graph Analysis', 'Pie Chart Calculation', 'Line Graph Trends', 'Table Based DI', 'Data Sufficiency'],
+    'Modern Math': ['Basic Probability', 'Dice Problems', 'Card Probability', 'Permutations & Combinations', 'AP/GP/HP', 'Sequence & Series'],
+    'Verbal Reasoning': ['Number Analogy', 'Alphabet Analogy', 'Word Analogy', 'Classification', 'Coding-Decoding', 'Blood Relations', 'Direction Sense', 'Ranking & Order', 'Series Completion'],
+    'Analytical/Logical Reasoning': ['Syllogism (Venn Diagram)', 'Statements & Conclusions', 'Assumptions', 'Arguments', 'Cause & Effect', 'Course of Action', 'Data Sufficiency'],
+    'Non-Verbal & Spatial Reasoning': ['Mirror Images', 'Water Images', 'Embedded Figures', 'Pattern Completion', 'Paper Folding', 'Dice & Cube Problems'],
+    'Puzzles & Arrangements': ['Linear Seating Arrangement', 'Circular Seating Arrangement', 'Matrix Puzzle', 'Scheduling Puzzle', 'Data-Based Puzzle'],
+    'Ancient History': ['Indus Valley Civilization', 'Vedic Period', 'Mahajanapadas', 'Mauryan Empire', 'Gupta Empire', 'Sangam Age'],
+    'Medieval History': ['Delhi Sultanate', 'Mughal Empire', 'Bhakti Movement', 'Sufi Movement', 'Vijayanagara Empire'],
+    'Modern History': ['Revolt of 1857', 'Indian National Congress', 'Gandhian Movements', 'Constitution Development'],
+    'Geography': ['Earth Structure', 'Rocks & Minerals', 'Volcanoes & Earthquakes', 'Climate Types', 'Rivers of India', 'Soils of India', 'Monsoon System'],
+    'Indian Polity': ['Preamble', 'Fundamental Rights', 'Directive Principles', 'Parliament', 'Judiciary', 'Panchayati Raj'],
+    'Economy': ['Basic Economic Concepts', 'Banking System', 'RBI Functions', 'Budget', 'Taxation', 'GDP Concept', 'Inflation Types'],
+    'Physics': ['Units & Measurements', 'Mechanics', 'Work, Power & Energy', 'Light & Optics', 'Sound', 'Electricity & Magnetism', 'Heat & Thermodynamics'],
+    'Chemistry': ['Atomic Structure', 'Chemical Bonding', 'Acids, Bases & Salts', 'Periodic Table', 'Metals & Non-metals', 'Environmental Chemistry'],
+    'Biology': ['Cell Structure', 'Classification of Organisms', 'Human Anatomy', 'Nutrition', 'Health & Diseases'],
+    'Current Affairs': ['National News', 'International News', 'Government Schemes', 'Sports', 'Awards & Honors', 'Appointments'],
+    'Static GK': ['Important Dates', 'Books & Authors', 'Capitals & Currencies', 'Organizations'],
+    'Reading Comprehension': ['Passage Theme', 'Inference', 'Tone of Passage', 'Vocabulary in Context'],
+    'Grammar': ['Error Detection', 'Sentence Improvement', 'Subject-Verb Agreement', 'Tenses', 'Articles', 'Prepositions', 'Active & Passive Voice', 'Direct & Indirect Speech'],
+    'Vocabulary': ['Synonyms', 'Antonyms', 'Idioms & Phrases', 'One Word Substitution', 'Spellings'],
+    'Sentence Structure': ['Para Jumbles', 'Cloze Test', 'Fill in the Blanks']
+  };
+
   @override
   void initState() {
     super.initState();
-    // Initialize the state with default values to prevent errors
     _selectedExam = examOptions.first;
     _selectedTopic = topicOptions.first;
     _selectedDifficulty = difficultyOptions[1]; // Medium
 
-    // Set the initial lists for the dependent dropdowns
     _subjectOptions = topicToSubjectsMap[_selectedTopic]!;
     _selectedSubject = _subjectOptions.first;
 
@@ -178,7 +197,6 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
                         Expanded(
                           child: TextFormField(
                             controller: _totalQuestionsController,
-                            // --- FIX #1: Changed TextInput to TextInputType ---
                             keyboardType: TextInputType.number,
                             decoration: _inputStyle("Qty", Icons.numbers),
                             validator: (v) => v!.isEmpty? "Required" : null,
@@ -280,6 +298,9 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
                   final q = _questions[index];
                   final int correctIdx = (q['correctAnswerIndex']?? 0).toInt();
                   final String topicLabel = q['topic']!= null? "Topic: ${q['topic']} | " : "";
+                  // Add category display if available
+                  final String categoryLabel = q['category']!= null? "Category: ${q['category']} | " : "";
+
                   return Card(
                     margin: const EdgeInsets.only(bottom: 8),
                     color: bgGrey,
@@ -287,8 +308,10 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
                     child: ListTile(
                       leading: CircleAvatar(backgroundColor: primaryBlue.withOpacity(0.1), child: Text((index + 1).toString(), style: const TextStyle(color: primaryBlue, fontSize: 12, fontWeight: FontWeight.bold))),
                       title: Text(q['text_en']?? '', style: const TextStyle(fontSize: 14)),
-                      // --- FIX #2: Correctly combined the string variables ---
-                      subtitle: Text("${topicLabel}Answer: ${String.fromCharCode(65 + correctIdx)}", style: const TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold)),
+                      subtitle: Text(
+                        "${topicLabel}${categoryLabel}Answer: ${String.fromCharCode(65 + correctIdx)}",
+                        style: const TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold),
+                      ),
                       trailing: IconButton(
                         icon: const Icon(Icons.delete_outline, color: Colors.red),
                         onPressed: () => setState(() => _questions.removeAt(index)),
@@ -367,6 +390,10 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
       setState(() {
         if (_selectedTestType!= TestType.fullMock) {
           result['topic'] = _selectedTopic;
+          // Ensure 'category' is also set from the current _selectedSection
+          // The QuestionFormDialog should also have its own section/category picker if it's
+          // to be truly independent, but for now, we default it based on test settings.
+          result['category'] = _selectedSection.isNotEmpty? _selectedSection : null; // <--- ADDED THIS LINE
         }
         _questions.add(result);
       });
@@ -386,6 +413,8 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
         List<String> optTe = List.filled(4, '');
         String? answer;
         String? currentTopic;
+        String? currentCategory; // <--- ADDED THIS LINE
+
         void saveCurrent() {
           if (current.containsKey('text_en') && answer!= null) {
             int idx = ['A', 'B', 'C', 'D'].indexOf(answer!.trim().toUpperCase());
@@ -396,6 +425,9 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
               if (currentTopic!= null) {
                 current['topic'] = currentTopic;
               }
+              if (currentCategory!= null) { // <--- ADDED THIS BLOCK
+                current['category'] = currentCategory;
+              }
               parsed.add(current);
             }
           }
@@ -403,6 +435,7 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
           optEn = List.filled(4, '');
           optTe = List.filled(4, '');
           answer = null;
+          currentCategory = null; // <--- RESET currentCategory
         }
         for (String line in lines) {
           String trimmed = line.trim();
@@ -421,6 +454,7 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
             switch (key) {
               case 'Q_EN': current['text_en'] = value; break;
               case 'Q_TE': current['text_te'] = value; break;
+              case 'ASKED_IN': current['asked_in'] = value; break;
               case 'A_EN': optEn[0] = value; break;
               case 'B_EN': optEn[1] = value; break;
               case 'C_EN': optEn[2] = value; break;
@@ -430,6 +464,7 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
               case 'C_TE': optTe[2] = value; break;
               case 'D_TE': optTe[3] = value; break;
               case 'ANSWER': answer = value; break;
+              case 'SECTION': currentCategory = value; break; // <--- CORRECTED THIS LINE
               case 'SOLUTION_EN': current['solution_en'] = value; break;
               case 'SOLUTION_TE': current['solution_te'] = value; break;
             }

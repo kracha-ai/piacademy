@@ -17,21 +17,21 @@ class _ExamScreenState extends State<ExamScreen> {
       "description": "15 Full Tests, 50+ Practice Sets",
       "avgScore": 0.75, // Represents 75%
       "color": Colors.red, // MaterialColor
-      "topics": ['Aptitude', 'Reasoning', 'GS', 'Science'], // Topics specific to RRB
+      "topics": ['Aptitude', 'Reasoning', 'General Studies', 'Science'], // Topics specific to RRB
     },
     {
       "name": "SSC",
       "description": "25 Full Tests, 120+ Practice Sets",
       "avgScore": 0.68, // Represents 68%
       "color": Colors.purple, // MaterialColor
-      "topics": ['Aptitude', 'Reasoning', 'GS', 'English', 'Science'], // Topics specific to SSC
+      "topics": ['Aptitude', 'Reasoning', 'General Studies', 'English', 'Science'], // Topics specific to SSC
     },
     {
       "name": "UPSC",
       "description": "10 Full Tests, 80+ Practice Sets",
       "avgScore": 0.82, // Represents 82%
       "color": Colors.green, // MaterialColor
-      "topics": ['GS', 'English'], // Topics specific to UPSC
+      "topics": ['General Studies', 'English'], // Topics specific to UPSC
     },
     {
       "name": "Bank",
@@ -46,7 +46,7 @@ class _ExamScreenState extends State<ExamScreen> {
     'Aptitude': ['Number System', 'Arithmetic', 'Time & Speed/Work', 'Algebra', 'Geometry & Mensuration', 'Data Interpretation (DI)', 'Modern Math'],
     'Reasoning': ['Verbal Reasoning', 'Analytical/Logical Reasoning', 'Non-Verbal & Spatial Reasoning', 'Puzzles & Arrangements'],
     'Science': ['Physics', 'Chemistry', 'Biology', 'Technology/Misc'],
-    'GS': ['Indian History', 'Geography', 'Indian Polity', 'Economy', 'Current Affairs', 'Static GK'],
+    'General Studies': ['Indian History', 'Geography', 'Indian Polity', 'Economy', 'Current Affairs', 'Static GK'],
     'English': ['Reading Comprehension', 'Grammar', 'Vocabulary', 'Sentence Structure']
   };
 
@@ -76,6 +76,36 @@ class _ExamScreenState extends State<ExamScreen> {
     'Grammar': ['Error Detection', 'Sentence Improvement', 'Subject-Verb Agreement', 'Tenses', 'Articles', 'Prepositions', 'Active/Passive Voice', 'Direct/Indirect Speech'],
     'Vocabulary': ['Synonyms & Antonyms', 'Idioms & Phrases', 'One Word Substitution', 'Spellings'],
     'Sentence Structure': ['Sentence Rearrangement (Para Jumbles)', 'Cloze Test', 'Fill in the Blanks']
+  };
+
+  final Map<String, List<String>> sectionToCategoryMap = {
+    'Number System': ['Types of Numbers (Natural, Whole, Integers)', 'Divisibility Rules Detailed', 'HCF Advanced Problems', 'LCM Applications', 'Prime Factorization', 'Recurring Decimals', 'Simplification & BODMAS', 'Remainder Concept'],
+    'Arithmetic': ['Percentage to Fraction Conversion', 'Successive Percentage', 'Profit & Loss with Marked Price', 'Discount with GST', 'Simple Interest Applications', 'Compound Interest (Yearly/Half-yearly)', 'Ratio & Proportion Concept', 'Alligation Rule', 'Partnership with Time Factor', 'Ages (Linear Equation Method)'],
+    'Time and Work': ['Efficiency Concept', 'Work Equivalence Method', 'Pipes with Leakage', 'Alternate Day Work', 'Man-Days Concept'],
+    'Time, Speed & Distance': ['Relative Speed', 'Average Speed Concept', 'Boats Upstream/Downstream', 'Train Crossing Pole', 'Train Crossing Platform'],
+    'Algebra': ['Linear Equations', 'Quadratic Equations', 'Nature of Roots', 'Algebraic Identities', 'Surds & Indices', 'Logarithm Laws'],
+    'Geometry & Mensuration': ['Pythagoras Theorem', 'Similarity of Triangles', 'Circle Theorems', 'Tangent & Chord Properties', 'Area & Perimeter (2D)', 'Volume & Surface Area (3D)', 'Coordinate Geometry Basics'],
+    'Data Interpretation (DI)': ['Bar Graph Analysis', 'Pie Chart Calculation', 'Line Graph Trends', 'Table Based DI', 'Data Sufficiency'],
+    'Modern Math': ['Basic Probability', 'Dice Problems', 'Card Probability', 'Permutations & Combinations', 'AP/GP/HP', 'Sequence & Series'],
+    'Verbal Reasoning': ['Number Analogy', 'Alphabet Analogy', 'Word Analogy', 'Classification', 'Coding-Decoding', 'Blood Relations', 'Direction Sense', 'Ranking & Order', 'Series Completion'],
+    'Analytical/Logical Reasoning': ['Syllogism (Venn Diagram)', 'Statements & Conclusions', 'Assumptions', 'Arguments', 'Cause & Effect', 'Course of Action', 'Data Sufficiency'],
+    'Non-Verbal & Spatial Reasoning': ['Mirror Images', 'Water Images', 'Embedded Figures', 'Pattern Completion', 'Paper Folding', 'Dice & Cube Problems'],
+    'Puzzles & Arrangements': ['Linear Seating Arrangement', 'Circular Seating Arrangement', 'Matrix Puzzle', 'Scheduling Puzzle', 'Data-Based Puzzle'],
+    'Ancient History': ['Indus Valley Civilization', 'Vedic Period', 'Mahajanapadas', 'Mauryan Empire', 'Gupta Empire', 'Sangam Age'],
+    'Medieval History': ['Delhi Sultanate', 'Mughal Empire', 'Bhakti Movement', 'Sufi Movement', 'Vijayanagara Empire'],
+    'Modern History': ['Revolt of 1857', 'Indian National Congress', 'Gandhian Movements', 'Constitution Development'],
+    'Geography': ['Earth Structure', 'Rocks & Minerals', 'Volcanoes & Earthquakes', 'Climate Types', 'Rivers of India', 'Soils of India', 'Monsoon System'],
+    'Indian Polity': ['Preamble', 'Fundamental Rights', 'Directive Principles', 'Parliament', 'Judiciary', 'Panchayati Raj'],
+    'Economy': ['Basic Economic Concepts', 'Banking System', 'RBI Functions', 'Budget', 'Taxation', 'GDP Concept', 'Inflation Types'],
+    'Physics': ['Units & Measurements', 'Mechanics', 'Work, Power & Energy', 'Light & Optics', 'Sound', 'Electricity & Magnetism', 'Heat & Thermodynamics'],
+    'Chemistry': ['Atomic Structure', 'Chemical Bonding', 'Acids, Bases & Salts', 'Periodic Table', 'Metals & Non-metals', 'Environmental Chemistry'],
+    'Biology': ['Cell Structure', 'Classification of Organisms', 'Human Anatomy', 'Nutrition', 'Health & Diseases'],
+    'Current Affairs': ['National News', 'International News', 'Government Schemes', 'Sports', 'Awards & Honors', 'Appointments'],
+    'Static GK': ['Important Dates', 'Books & Authors', 'Capitals & Currencies', 'Organizations'],
+    'Reading Comprehension': ['Passage Theme', 'Inference', 'Tone of Passage', 'Vocabulary in Context'],
+    'Grammar': ['Error Detection', 'Sentence Improvement', 'Subject-Verb Agreement', 'Tenses', 'Articles', 'Prepositions', 'Active & Passive Voice', 'Direct & Indirect Speech'],
+    'Vocabulary': ['Synonyms', 'Antonyms', 'Idioms & Phrases', 'One Word Substitution', 'Spellings'],
+    'Sentence Structure': ['Para Jumbles', 'Cloze Test', 'Fill in the Blanks']
   };
 
   // This list will hold the exams that are currently visible (for search).

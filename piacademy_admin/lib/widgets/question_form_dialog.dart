@@ -20,6 +20,7 @@ class _QuestionFormDialogState extends State<QuestionFormDialog> {
   late List<TextEditingController> _optionsTeControllers;
   late TextEditingController _solutionEnController;
   late TextEditingController _solutionTeController;
+  late TextEditingController _categoryController; // <--- ADDED THIS
 
   late int _correctAnswerIndex;
 
@@ -31,13 +32,14 @@ class _QuestionFormDialogState extends State<QuestionFormDialog> {
   void initState() {
     super.initState();
 
-    _correctAnswerIndex = widget.initialQuestion?['correctAnswerIndex'] ?? 0;
+    _correctAnswerIndex = widget.initialQuestion?['correctAnswerIndex']?? 0;
 
     _textEnController = TextEditingController(text: widget.initialQuestion?['text_en']);
     _textTeController = TextEditingController(text: widget.initialQuestion?['text_te']);
     _askedInController = TextEditingController(text: widget.initialQuestion?['asked_in']);
     _solutionEnController = TextEditingController(text: widget.initialQuestion?['solution_en']);
     _solutionTeController = TextEditingController(text: widget.initialQuestion?['solution_te']);
+    _categoryController = TextEditingController(text: widget.initialQuestion?['category']); // <--- ADDED THIS
 
     _optionsEnControllers = List.generate(4, (i) =>
         TextEditingController(text: widget.initialQuestion?['options_en']?[i]?.toString()));
@@ -53,6 +55,7 @@ class _QuestionFormDialogState extends State<QuestionFormDialog> {
     _askedInController.dispose();
     _solutionEnController.dispose();
     _solutionTeController.dispose();
+    _categoryController.dispose(); // <--- ADDED THIS
     for (var c in _optionsEnControllers) c.dispose();
     for (var c in _optionsTeControllers) c.dispose();
     super.dispose();
@@ -89,6 +92,9 @@ class _QuestionFormDialogState extends State<QuestionFormDialog> {
         'correctAnswerIndex': _correctAnswerIndex,
         'solution_en': _solutionEnController.text.trim(),
         'solution_te': _solutionTeController.text.trim(),
+        'category': _categoryController.text.trim().isNotEmpty // <--- ADDED THIS BLOCK
+            ? _categoryController.text.trim()
+            : null,
       });
     }
   }
@@ -114,7 +120,7 @@ class _QuestionFormDialogState extends State<QuestionFormDialog> {
                   ),
                   const SizedBox(width: 15),
                   Text(
-                    widget.initialQuestion == null ? "Add New Question" : "Edit Question",
+                    widget.initialQuestion == null? "Add New Question" : "Edit Question",
                     style: GoogleFonts.poppins(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
@@ -142,19 +148,25 @@ class _QuestionFormDialogState extends State<QuestionFormDialog> {
                         controller: _textEnController,
                         maxLines: 2,
                         decoration: _input("English Question", Icons.language),
-                        validator: (v) => v!.isEmpty ? "Enter English text" : null,
+                        validator: (v) => v!.isEmpty? "Enter English text" : null,
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _textTeController,
                         maxLines: 2,
                         decoration: _input("Telugu Question", Icons.translate),
-                        validator: (v) => v!.isEmpty ? "Enter Telugu text" : null,
+                        // Changed validator to be optional for Telugu text
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _askedInController,
                         decoration: _input("Exam / Asked In", Icons.history_edu),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField( // <--- ADDED CATEGORY TEXTFIELD HERE
+                        controller: _categoryController,
+                        decoration: _input("Category (Optional)", Icons.category),
+                        // Validator can be added here if category is mandatory
                       ),
 
                       const SizedBox(height: 32),
@@ -166,13 +178,13 @@ class _QuestionFormDialogState extends State<QuestionFormDialog> {
                       TextFormField(
                         controller: _solutionEnController,
                         maxLines: 2,
-                        decoration: _input("English Explanation", Icons.lightbulb_outline),
+                        decoration: _input("English Explanation (Optional)", Icons.lightbulb_outline),
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _solutionTeController,
                         maxLines: 2,
-                        decoration: _input("Telugu Explanation", Icons.g_translate),
+                        decoration: _input("Telugu Explanation (Optional)", Icons.g_translate),
                       ),
                     ],
                   ),
@@ -234,10 +246,10 @@ class _QuestionFormDialogState extends State<QuestionFormDialog> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isSelected ? const Color(0xFFF1F7FF) : surfaceGrey,
+        color: isSelected? const Color(0xFFF1F7FF) : surfaceGrey,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isSelected ? primaryBlue : Colors.transparent,
+          color: isSelected? primaryBlue : Colors.transparent,
           width: 2,
         ),
       ),
@@ -255,7 +267,7 @@ class _QuestionFormDialogState extends State<QuestionFormDialog> {
                 "OPTION ${String.fromCharCode(65 + index)}",
                 style: GoogleFonts.inter(
                   fontWeight: FontWeight.bold,
-                  color: isSelected ? primaryBlue : Colors.grey[800],
+                  color: isSelected? primaryBlue : Colors.grey[800],
                 ),
               ),
               const Spacer(),
@@ -267,13 +279,14 @@ class _QuestionFormDialogState extends State<QuestionFormDialog> {
           TextFormField(
             controller: _optionsEnControllers[index],
             decoration: _input("English Option", Icons.abc),
-            validator: (v) => v!.isEmpty ? "Required" : null,
+            validator: (v) => v!.isEmpty? "Required" : null,
           ),
           const SizedBox(height: 10),
           TextFormField(
             controller: _optionsTeControllers[index],
-            decoration: _input("Telugu Option", Icons.translate),
-            validator: (v) => v!.isEmpty ? "Required" : null,
+            decoration: _input("Telugu Option (Optional)", Icons.translate), // Label updated
+            // Validator for Telugu option can be removed if it's optional
+            // validator: (v) => v!.isEmpty? "Required" : null,
           ),
         ],
       ),

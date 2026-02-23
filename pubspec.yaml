@@ -19,6 +19,8 @@ dependencies:
   cloud_firestore: ^6.1.2
   shared_preferences: ^2.5.4
   fl_chart: ^0.66.2
+  sqflite: ^2.3.0  # Or the latest version
+  path: ^1.8.3     # The path package is used by sqflite to find the correct file path
 
 dev_dependencies:
   flutter_test:
