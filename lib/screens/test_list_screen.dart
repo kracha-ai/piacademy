@@ -1,9 +1,9 @@
-import 'dart:convert'; // Not strictly needed for this file after removing local JSON, but often used.
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // <--- NEW: Import Firebase Auth
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../services/theme_notifier.dart';
 import 'mock_test_screen.dart';
@@ -13,12 +13,14 @@ class TestListScreen extends StatefulWidget {
   final String exam;
   final String topic;
   final String subject;
+  final Map<String, List<String>> subjectToSectionsMap; // NEW: Receive this map
 
   const TestListScreen({
     super.key,
     required this.exam,
     required this.topic,
     required this.subject,
+    required this.subjectToSectionsMap, // NEW: Required in constructor
   });
 
   @override
@@ -26,15 +28,16 @@ class TestListScreen extends StatefulWidget {
 }
 
 class _TestListScreenState extends State<TestListScreen> {
-  String? _currentUserId; // <--- NEW: Variable to hold the current user's ID
+  String? _currentUserId;
+  List<String> _sectionsForSubject = []; // NEW: List to hold sections for the current subject
 
   @override
   void initState() {
     super.initState();
-    _getCurrentUser(); // <--- NEW: Call method to get user ID on init
+    _getCurrentUser();
+    _loadSectionsForSubject(); // NEW: Load sections when the screen initializes
   }
 
-  // <--- NEW: Method to fetch the current user's ID
   void _getCurrentUser() {
     final user = FirebaseAuth.instance.currentUser;
     if (user!= null) {
@@ -42,14 +45,15 @@ class _TestListScreenState extends State<TestListScreen> {
         _currentUserId = user.uid;
       });
     } else {
-      // Handle cases where no user is logged in
-      // For now, we'll just print a message.
-      // In a real app, you might want to redirect to a login screen
-      // or show a specific message to the user.
       print("No user logged in.");
-      // You might set _currentUserId to a "guest" identifier if anonymous usage is allowed,
-      // but keep in mind guest results won't be tied to a specific persistent user.
     }
+  }
+
+  // NEW: Method to populate _sectionsForSubject
+  void _loadSectionsForSubject() {
+    setState(() {
+      _sectionsForSubject = widget.subjectToSectionsMap[widget.subject]?? [];
+    });
   }
 
   @override
@@ -76,131 +80,160 @@ class _TestListScreenState extends State<TestListScreen> {
           ),
         ],
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('tests')
-            .where('exam', isEqualTo: widget.exam)
-            .where('topic', isEqualTo: widget.topic)
-            .where('subject', isEqualTo: widget.subject)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(child: Text("Error: ${snapshot.error}", style: TextStyle(color: Colors.red)));
-          }
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          final List<QueryDocumentSnapshot> docs = snapshot.data?.docs?? [];
-
-          if (docs.isEmpty) {
-            return Center(
-              child: Text(
-                "No Tests Available in Firestore for this subject.",
-                style: TextStyle(fontSize: 16, color: textColor),
-                textAlign: TextAlign.center,
-              ),
-            );
-          }
-
-          // If _currentUserId is null, we can't reliably check completion status.
-          // Display a loading indicator or a message until user ID is available.
-          if (_currentUserId == null) {
-            return const Center(
+      body: Column( // Use Column to place sections above the StreamBuilder
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (_sectionsForSubject.isNotEmpty) // Display sections if available
+            Padding(
+              padding: const EdgeInsets.all(16.0),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text("Loading user data to check test status..."),
+                  Text(
+                    "Sections for ${widget.subject}:",
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8.0, // Space between chips
+                    runSpacing: 8.0, // Space between lines of chips
+                    children: _sectionsForSubject.map((sectionName) => Chip(
+                      label: Text(sectionName),
+                      backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
+                      labelStyle: TextStyle(color: Theme.of(context).primaryColor, fontSize: 13),
+                    )).toList(),
+                  ),
+                  const Divider(height: 32), // Separator
                 ],
               ),
-            );
-          }
+            ),
+          Expanded( // Ensure the ListView takes remaining space
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('tests')
+                  .where('exam', isEqualTo: widget.exam)
+                  .where('topic', isEqualTo: widget.topic)
+                  .where('subject', isEqualTo: widget.subject)
+              // Optionally, add a.where('section', isEqualTo: selectedSection) here
+              // if you implement a section filter in this screen.
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(child: Text("Error: ${snapshot.error}", style: TextStyle(color: Colors.red)));
+                }
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: docs.length,
-            itemBuilder: (context, index) {
-              var data = docs[index].data() as Map<String, dynamic>;
-              String testId = docs[index].id;
+                final List<QueryDocumentSnapshot> docs = snapshot.data?.docs?? [];
 
-              return StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection('results')
-                    .where('userId', isEqualTo: _currentUserId) // <--- UPDATED: Use the actual _currentUserId
-                    .where('testId', isEqualTo: testId)
-                    .snapshots(),
-                builder: (context, resSnapshot) {
-                  // Check if any results documents exist for this user and test
-                  bool isCompleted = resSnapshot.hasData && resSnapshot.data!.docs.isNotEmpty;
-
-                  return Card(
-                    elevation: 4,
-                    margin: const EdgeInsets.only(bottom: 16),
-                    clipBehavior: Clip.antiAlias,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                    color: Theme.of(context).cardColor,
-                    child: InkWell(
-                      onTap: () => _handleTestSelection(context, data, isDarkTheme, textColor),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    data['name']?? 'Untitled Test',
-                                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textColor),
-                                  ),
-                                ),
-                                if (isCompleted)
-                                  const Row(
-                                    children: [
-                                      Icon(Icons.check_circle, color: Colors.green, size: 18),
-                                      SizedBox(width: 4),
-                                      Text("Completed", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12)),
-                                    ],
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              data['description']?? 'No description available',
-                              style: TextStyle(fontSize: 14, color: secondaryTextColor),
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Icon(Icons.star, size: 16, color: secondaryTextColor),
-                                const SizedBox(width: 4),
-                                Text("${data['difficulty']?? 'Medium'}", style: TextStyle(fontSize: 13, color: secondaryTextColor)),
-                                const SizedBox(width: 16),
-                                Icon(Icons.timer, size: 16, color: secondaryTextColor),
-                                const SizedBox(width: 4),
-                                Text("${data['durationMinutes']?? '60'} min", style: TextStyle(fontSize: 13, color: secondaryTextColor)),
-                                const Spacer(),
-                                // --- Visual indication of action ---
-                                Text(
-                                  isCompleted? "Re-take" : "Start Now",
-                                  style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold),
-                                ),
-                                Icon(Icons.arrow_forward_ios, size: 14, color: Theme.of(context).primaryColor),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
+                if (docs.isEmpty) {
+                  return Center(
+                    child: Text(
+                      "No Tests Available in Firestore for this subject.",
+                      style: TextStyle(fontSize: 16, color: textColor),
+                      textAlign: TextAlign.center,
                     ),
                   );
-                },
-              );
-            },
-          );
-        },
+                }
+
+                if (_currentUserId == null) {
+                  return const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 16),
+                        Text("Loading user data to check test status..."),
+                      ],
+                    ),
+                  );
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: docs.length,
+                  itemBuilder: (context, index) {
+                    var data = docs[index].data() as Map<String, dynamic>;
+                    String testId = docs[index].id;
+
+                    return StreamBuilder<QuerySnapshot>(
+                      stream: FirebaseFirestore.instance
+                          .collection('results')
+                          .where('userId', isEqualTo: _currentUserId)
+                          .where('testId', isEqualTo: testId)
+                          .snapshots(),
+                      builder: (context, resSnapshot) {
+                        bool isCompleted = resSnapshot.hasData && resSnapshot.data!.docs.isNotEmpty;
+
+                        return Card(
+                          elevation: 4,
+                          margin: const EdgeInsets.only(bottom: 16),
+                          clipBehavior: Clip.antiAlias,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                          color: Theme.of(context).cardColor,
+                          child: InkWell(
+                            onTap: () => _handleTestSelection(context, data, isDarkTheme, textColor),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          data['name']?? 'Untitled Test',
+                                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textColor),
+                                        ),
+                                      ),
+                                      if (isCompleted)
+                                        const Row(
+                                          children: [
+                                            Icon(Icons.check_circle, color: Colors.green, size: 18),
+                                            SizedBox(width: 4),
+                                            Text("Completed", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12)),
+                                          ],
+                                        ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    data['description']?? 'No description available',
+                                    style: TextStyle(fontSize: 14, color: secondaryTextColor),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    children: [
+                                      Icon(Icons.star, size: 16, color: secondaryTextColor),
+                                      const SizedBox(width: 4),
+                                      Text("${data['difficulty']?? 'Medium'}", style: TextStyle(fontSize: 13, color: secondaryTextColor)),
+                                      const SizedBox(width: 16),
+                                      Icon(Icons.timer, size: 16, color: secondaryTextColor),
+                                      const SizedBox(width: 4),
+                                      Text("${data['durationMinutes']?? '60'} min", style: TextStyle(fontSize: 13, color: secondaryTextColor)),
+                                      const Spacer(),
+                                      Text(
+                                        isCompleted? "Re-take" : "Start Now",
+                                        style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold),
+                                      ),
+                                      Icon(Icons.arrow_forward_ios, size: 14, color: Theme.of(context).primaryColor),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

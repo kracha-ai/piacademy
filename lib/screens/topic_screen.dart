@@ -5,60 +5,64 @@ import 'subject_screen.dart';
 
 class TopicScreen extends StatefulWidget {
   final String examName;
+  final List<String> examTopics; // NEW: Topics relevant to the selected exam
+  final Map<String, List<String>> topicToSubjectsMap; // NEW: Passed from ExamScreen
+  final Map<String, List<String>> subjectToSectionsMap; // NEW: Passed from ExamScreen
 
-  const TopicScreen({super.key, required this.examName});
+  const TopicScreen({
+    super.key,
+    required this.examName,
+    required this.examTopics, // Required parameter
+    required this.topicToSubjectsMap, // Required parameter
+    required this.subjectToSectionsMap, // Required parameter
+  });
 
   @override
   State<TopicScreen> createState() => _TopicScreenState();
 }
 
 class _TopicScreenState extends State<TopicScreen> {
-  // Corrected Mock data for topics - store MaterialColor swatches
-  final List<Map<String, dynamic>> _allTopics = [
-    {
-      "name": "Aptitude",
-      "description": "Numerical ability, data interpretation, logical reasoning.",
-      "subtopics": "Quantitative, DI, Data Sufficiency",
-      "completion": 0.65,
-      "color": Colors.orange, // NOW, this refers to the MaterialColor SWATCH
-    },
-    {
-      "name": "Reasoning",
-      "description": "Verbal and non-verbal reasoning, puzzles, series.",
-      "subtopics": "Verbal, Non-Verbal, Puzzles",
-      "completion": 0.72,
-      "color": Colors.teal, // MaterialColor SWATCH
-    },
-    {
-      "name": "GS", // General Studies
-      "description": "History, Geography, Polity, Economy, Science & Tech.",
-      "subtopics": "History, Geo, Polity, Eco, S&T",
-      "completion": 0.58,
-      "color": Colors.green, // MaterialColor SWATCH
-    },
-    {
-      "name": "English",
-      "description": "Grammar, Vocabulary, Comprehension, Sentence Rearrangement.",
-      "subtopics": "Grammar, Vocab, RC, Cloze Test",
-      "completion": 0.80,
-      "color": Colors.pink, // MaterialColor SWATCH
-    },
-    {
-      "name": "Science",
-      "description": "Physics, Chemistry, Biology, Environmental Science.",
-      "subtopics": "Physics, Chemistry, Biology, Env.",
-      "completion": 0.60,
-      "color": Colors.blue, // MaterialColor SWATCH
-    },
-  ];
+  // NEW: Removed hardcoded _allTopics. We will generate it from examTopics.
+  List<Map<String, dynamic>> _allTopicsDisplayData = []; // This will hold data for display
 
   List<Map<String, dynamic>> _foundTopics = [];
   final TextEditingController _searchController = TextEditingController();
 
+  // Placeholder for topic-specific descriptions and mock completion/colors
+  // In a real app, this would be fetched from a database
+  final Map<String, String> _topicDescriptions = {
+    "Aptitude": "Numerical ability, data interpretation, logical reasoning.",
+    "Reasoning": "Verbal and non-verbal reasoning, puzzles, series.",
+    "GS": "History, Geography, Polity, Economy, Science & Tech.",
+    "English": "Grammar, Vocabulary, Comprehension, Sentence Rearrangement.",
+    "Science": "Physics, Chemistry, Biology, Environmental Science.",
+  };
+
+  final Map<String, MaterialColor> _topicDefaultColors = {
+    "Aptitude": Colors.orange,
+    "Reasoning": Colors.teal,
+    "GS": Colors.green,
+    "English": Colors.pink,
+    "Science": Colors.blue,
+  };
+
   @override
   void initState() {
-    _foundTopics = _allTopics;
     super.initState();
+    _loadTopicsDisplayData(); // Load topics based on what's passed from ExamScreen
+    _foundTopics = _allTopicsDisplayData;
+  }
+
+  void _loadTopicsDisplayData() {
+    _allTopicsDisplayData = widget.examTopics.map((topicName) {
+      return {
+        "name": topicName,
+        "description": _topicDescriptions[topicName]?? "$topicName related content.",
+        "subtopics": widget.topicToSubjectsMap[topicName]?.join(', ')?? "No subtopics",
+        "completion": 0.0 + (topicName.length % 5) * 0.1, // Mock completion
+        "color": _topicDefaultColors[topicName]?? Colors.grey,
+      };
+    }).toList();
   }
 
   @override
@@ -70,9 +74,9 @@ class _TopicScreenState extends State<TopicScreen> {
   void _runFilter(String enteredKeyword) {
     List<Map<String, dynamic>> results = [];
     if (enteredKeyword.isEmpty) {
-      results = _allTopics;
+      results = _allTopicsDisplayData;
     } else {
-      results = _allTopics
+      results = _allTopicsDisplayData
           .where((topic) =>
           topic['name'].toLowerCase().contains(enteredKeyword.toLowerCase()))
           .toList();
@@ -87,7 +91,6 @@ class _TopicScreenState extends State<TopicScreen> {
     final themeNotifier = Provider.of<ThemeNotifier>(context);
     final isDarkTheme = themeNotifier.themeMode == ThemeMode.dark;
 
-    // Define text colors that adapt to the theme for consistent look
     final Color textColor = isDarkTheme? Colors.white70 : Colors.black87;
     final Color secondaryTextColor = isDarkTheme? Colors.grey.shade400 : Colors.grey.shade700;
     final Color placeholderColor = isDarkTheme? Colors.blue.shade300 : Colors.blue.shade800;
@@ -97,18 +100,16 @@ class _TopicScreenState extends State<TopicScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text("${widget.examName} Topics"),
-        // Colors are handled by MaterialApp's AppBarTheme
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16.0),
         child: Column(
           children: [
             const SizedBox(height: 20),
-            // --- Search Bar ---
             TextField(
               controller: _searchController,
               onChanged: _runFilter,
-              style: TextStyle(color: textColor), // Ensure text is visible in dark mode
+              style: TextStyle(color: textColor),
               decoration: InputDecoration(
                 labelText: 'Search for a topic',
                 labelStyle: TextStyle(color: secondaryTextColor),
@@ -117,18 +118,17 @@ class _TopicScreenState extends State<TopicScreen> {
                   borderRadius: BorderRadius.circular(12.0),
                   borderSide: BorderSide(color: secondaryTextColor),
                 ),
-                enabledBorder: OutlineInputBorder( // Define for enabled state
+                enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12.0),
                   borderSide: BorderSide(color: secondaryTextColor.withOpacity(0.5)),
                 ),
-                focusedBorder: OutlineInputBorder( // Define for focused state
+                focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12.0),
-                  borderSide: BorderSide(color: Theme.of(context).primaryColor), // Highlight with primary color
+                  borderSide: BorderSide(color: Theme.of(context).primaryColor),
                 ),
               ),
             ),
             const SizedBox(height: 20),
-            // --- List of Topics ---
             Expanded(
               child: _foundTopics.isNotEmpty
                   ? ListView.builder(
@@ -140,10 +140,8 @@ class _TopicScreenState extends State<TopicScreen> {
                   final String subtopics = topic['subtopics'];
                   final double completion = topic['completion'];
 
-                  // Cast the stored color to MaterialColor to access shades
                   final MaterialColor topicMaterialColor = topic['color'] as MaterialColor;
 
-                  // Adjust card color based on topic's base color and theme
                   final Color cardColor = isDarkTheme
                       ? topicMaterialColor.shade700
                       : topicMaterialColor.shade100;
@@ -155,15 +153,18 @@ class _TopicScreenState extends State<TopicScreen> {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(15),
                     ),
-                    color: cardColor, // Dynamic card color
+                    color: cardColor,
                     child: InkWell(
                       onTap: () {
+                        // NEW: Pass subjects and maps to SubjectScreen
                         Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (context) => SubjectScreen(
                               examName: widget.examName,
                               topicName: topicName,
+                              topicToSubjectsMap: widget.topicToSubjectsMap, // Pass maps down
+                              subjectToSectionsMap: widget.subjectToSectionsMap, // Pass maps down
                             ),
                           ),
                         );
@@ -173,43 +174,39 @@ class _TopicScreenState extends State<TopicScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // --- Topic Name ---
                             Text(
                               topicName,
                               style: TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
-                                color: textColor, // Dynamic text color
+                                color: textColor,
                               ),
                             ),
                             const SizedBox(height: 4),
-                            // --- Topic Description ---
                             Text(
                               description,
                               style: TextStyle(
                                   fontSize: 14,
-                                  color: secondaryTextColor), // Dynamic text color
+                                  color: secondaryTextColor),
                             ),
                             const SizedBox(height: 8),
-                            // --- Subtopics ---
                             Text(
                               "Subtopics: $subtopics",
                               style: TextStyle(
                                   fontSize: 13,
                                   fontStyle: FontStyle.italic,
-                                  color: secondaryTextColor.withOpacity(0.8)), // Dynamic text color
+                                  color: secondaryTextColor.withOpacity(0.8)),
                             ),
                             const SizedBox(height: 16),
 
-                            // --- Progress Bar and Completion ---
                             if (completion > 0)...[
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(10),
                                 child: LinearProgressIndicator(
                                   value: completion,
                                   minHeight: 8,
-                                  backgroundColor: progressTrackColor, // Dynamic color
-                                  valueColor: AlwaysStoppedAnimation<Color>(progressValueColor), // Dynamic color
+                                  backgroundColor: progressTrackColor,
+                                  valueColor: AlwaysStoppedAnimation<Color>(progressValueColor),
                                 ),
                               ),
                               const SizedBox(height: 8),
@@ -217,15 +214,14 @@ class _TopicScreenState extends State<TopicScreen> {
                                 "Completed: ${(completion * 100).toStringAsFixed(0)}%",
                                 style: TextStyle(
                                     fontWeight: FontWeight.w500,
-                                    color: textColor), // Dynamic text color
+                                    color: textColor),
                               ),
                             ] else...[
-                              // --- Show a "Start Learning" message if no progress ---
                               Text(
                                 "Start learning this topic!",
                                 style: TextStyle(
                                     color: placeholderColor,
-                                    fontWeight: FontWeight.w500), // Dynamic text color
+                                    fontWeight: FontWeight.w500),
                               )
                             ]
                           ],
@@ -238,7 +234,7 @@ class _TopicScreenState extends State<TopicScreen> {
                   : Center(
                 child: Text(
                   'No topics found. Try a different search term!',
-                  style: TextStyle(fontSize: 16, color: textColor), // Dynamic text color
+                  style: TextStyle(fontSize: 16, color: textColor),
                   textAlign: TextAlign.center,
                 ),
               ),

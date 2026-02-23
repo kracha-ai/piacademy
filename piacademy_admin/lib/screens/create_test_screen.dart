@@ -427,7 +427,7 @@ class _CreateTestScreenState extends State<CreateTestScreen> {
               case 'D_EN': optEn[3] = value; break;
               case 'A_TE': optTe[0] = value; break;
               case 'B_TE': optTe[1] = value; break;
-              case 'C_EN': optTe[2] = value; break;
+              case 'C_TE': optTe[2] = value; break;
               case 'D_TE': optTe[3] = value; break;
               case 'ANSWER': answer = value; break;
               case 'SOLUTION_EN': current['solution_en'] = value; break;

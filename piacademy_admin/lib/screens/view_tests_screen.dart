@@ -48,19 +48,113 @@ class _ViewTestsScreenState extends State<ViewTestsScreen> {
   List<String> subjectOptions = [];
   List<String> sectionOptions = [];
 
-  // --- The "Rulebook" for the hierarchy ---
-  final List<String> examOptions = ['RRB', 'SSC', 'UPSC', 'Bank'];
-  final List<String> topicOptions = ['Aptitude', 'Reasoning', 'Science', 'GS', 'English'];
-  final List<String> difficultyOptions = ['Easy', 'Medium', 'Hard'];
-  final Map<String, List<String>> topicToSubjectsMap = {'Aptitude': ['Number System', 'Arithmetic', 'Time & Speed/Work', 'Algebra', 'Geometry & Mensuration', 'Data Interpretation (DI)', 'Modern Math'],'Reasoning': ['Verbal Reasoning', 'Analytical/Logical Reasoning', 'Non-Verbal & Spatial Reasoning', 'Puzzles & Arrangements'],'Science': ['Physics', 'Chemistry', 'Biology', 'Technology/Misc'],'GS': ['Indian History', 'Geography', 'Indian Polity', 'Economy', 'Current Affairs', 'Static GK'],'English': ['Reading Comprehension', 'Grammar', 'Vocabulary', 'Sentence Structure']};
-  final Map<String, List<String>> subjectToSectionsMap = {'Number System': ['Divisibility rules', 'HCF & LCM', 'Prime Numbers', 'Fractions/Decimals'],'Arithmetic': ['Percentages', 'Profit & Loss', 'Discount', 'Simple & Compound Interest', 'Average', 'Ratio & Proportion', 'Mixture & Alligation', 'Partnerships', 'Ages'],'Time & Speed/Work': ['Time and Work', 'Pipes & Cisterns', 'Time, Speed & Distance', 'Boats & Streams', 'Problems on Trains'],'Algebra': ['Linear & Quadratic Equations', 'Polynomials', 'Surds & Indices', 'Logarithms'],'Geometry & Mensuration': ['Triangles', 'Circles', 'Polygons', 'Area & Perimeter (2D)', 'Volume & Surface Area (3D)', 'Co-ordinate Geometry'],'Data Interpretation (DI)': ['Bar Graphs', 'Pie Charts', 'Line Graphs', 'Tables', 'Data Sufficiency'],'Modern Math': ['Probability', 'Permutations & Combinations', 'Sequence & Series (AP/GP/HP)'],'Verbal Reasoning': ['Analogy', 'Classification (Odd One Out)', 'Coding-Decoding', 'Blood Relations', 'Direction Sense', 'Series (Number/Alphabet)', 'Ranking'],'Analytical/Logical Reasoning': ['Syllogism', 'Statements & Conclusions', 'Assumptions', 'Arguments', 'Cause & Effect', 'Course of Action', 'Data Sufficiency'],'Non-Verbal & Spatial Reasoning': ['Mirror/Water Images', 'Embedded Figures', 'Pattern Completion', 'Paper Folding/Cutting', 'Dice & Cube Problems'],'Puzzles & Arrangements': ['Seating Arrangement (Linear/Circular)', 'Matrix Puzzle', 'Scheduling/Data-based Puzzles'],'Physics': ['Units & Measurements', 'Mechanics', 'Work, Power & Energy', 'Gravitation', 'Light & Optics', 'Sound', 'Electricity & Magnetism', 'Heat & Thermodynamics'],'Chemistry': ['Atomic Structure', 'Chemical Bonding', 'Acids, Bases & Salts', 'Metals & Non-metals', 'Periodic Table', 'Environmental Chemistry', 'Everyday Chemistry'],'Biology': ['Cell Structure & Functions', 'Classification of Organisms', 'Human Anatomy & Physiology', 'Nutrition & Food', 'Health & Diseases'],'Technology/Misc': ['Space Technology', 'Defense Tech', 'Renewable Energy', 'Nuclear Technology'],'Indian History': ['Ancient', 'Medieval', 'Modern History'],'Geography': ['Physical', 'Indian', 'World Geography'],'Indian Polity': ['Constitution of India', 'Fundamental Rights', 'Parliament', 'Judiciary', 'Panchayati Raj'],'Economy': ['Basics of Indian Economy', 'Banking System', 'Budget', 'Taxation', 'GDP', 'Inflation'],'Current Affairs': ['National & International News', 'Government Schemes', 'Sports', 'Awards & Honors', 'Appointments'],'Static GK': ['Important Dates', 'Books & Authors', 'Capitals & Currencies', 'Organizations'],'Reading Comprehension': ['Passage Theme', 'Inference', 'Tone', 'Vocabulary'],'Grammar': ['Error Detection', 'Sentence Improvement', 'Subject-Verb Agreement', 'Tenses', 'Articles', 'Prepositions', 'Active/Passive Voice', 'Direct/Indirect Speech'],'Vocabulary': ['Synonyms & Antonyms', 'Idioms & Phrases', 'One Word Substitution', 'Spellings'],'Sentence Structure': ['Sentence Rearrangement (Para Jumbles)', 'Cloze Test', 'Fill in the Blanks']};
+  // --- The COMPREHENSIVE "Rulebook" for the hierarchy (from your ExamScreen) ---
+  // These maps MUST be present in this class for the dropdowns to work.
+  // If you update this in the Android app, remember to copy these exact maps
+  // to your web admin panel to maintain consistency.
+
+  // Store _allExamsData directly here for filtering
+  final List<Map<String, dynamic>> _allExamsData = [
+    {
+      "name": "RRB",
+      "description": "15 Full Tests, 50+ Practice Sets",
+      "avgScore": 0.75, // Represents 75%
+      "color": Colors.red, // MaterialColor
+      "topics": ['Aptitude', 'Reasoning', 'GS', 'Science'], // Topics specific to RRB
+    },
+    {
+      "name": "SSC",
+      "description": "25 Full Tests, 120+ Practice Sets",
+      "avgScore": 0.68, // Represents 68%
+      "color": Colors.purple, // MaterialColor
+      "topics": ['Aptitude', 'Reasoning', 'GS', 'English', 'Science'], // Topics specific to SSC
+    },
+    {
+      "name": "UPSC",
+      "description": "10 Full Tests, 80+ Practice Sets",
+      "avgScore": 0.82, // Represents 82%
+      "color": Colors.green, // MaterialColor
+      "topics": ['GS', 'English'], // Topics specific to UPSC
+    },
+    {
+      "name": "Bank",
+      "description": "30 Full Tests, 200+ Practice Sets",
+      "avgScore": 0.0, // Represents 0% (not started)
+      "color": Colors.blue, // MaterialColor
+      "topics": ['Aptitude', 'Reasoning', 'English'], // Topics specific to Bank
+    }
+  ];
+
+  final Map<String, List<String>> _comprehensiveTopicToSubjectsMap = {
+    'Aptitude': ['Number System', 'Arithmetic', 'Time & Speed/Work', 'Algebra', 'Geometry & Mensuration', 'Data Interpretation (DI)', 'Modern Math'],
+    'Reasoning': ['Verbal Reasoning', 'Analytical/Logical Reasoning', 'Non-Verbal & Spatial Reasoning', 'Puzzles & Arrangements'],
+    'Science': ['Physics', 'Chemistry', 'Biology', 'Technology/Misc'],
+    'GS': ['Indian History', 'Geography', 'Indian Polity', 'Economy', 'Current Affairs', 'Static GK'],
+    'English': ['Reading Comprehension', 'Grammar', 'Vocabulary', 'Sentence Structure']
+  };
+
+  final Map<String, List<String>> _comprehensiveSubjectToSectionsMap = {
+    'Number System': ['Divisibility rules', 'HCF & LCM', 'Prime Numbers', 'Fractions/Decimals'],
+    'Arithmetic': ['Percentages', 'Profit & Loss', 'Discount', 'Simple & Compound Interest', 'Average', 'Ratio & Proportion', 'Mixture & Alligation', 'Partnerships', 'Ages'],
+    'Time & Speed/Work': ['Time and Work', 'Pipes & Cisterns', 'Time, Speed & Distance', 'Boats & Streams', 'Problems on Trains'],
+    'Algebra': ['Linear & Quadratic Equations', 'Polynomials', 'Surds & Indices', 'Logarithms'],
+    'Geometry & Mensuration': ['Triangles', 'Circles', 'Polygons', 'Area & Perimeter (2D)', 'Volume & Surface Area (3D)', 'Co-ordinate Geometry'],
+    'Data Interpretation (DI)': ['Bar Graphs', 'Pie Charts', 'Line Graphs', 'Tables', 'Data Sufficiency'],
+    'Modern Math': ['Probability', 'Permutations & Combinations', 'Sequence & Series (AP/GP/HP)'],
+    'Verbal Reasoning': ['Analogy', 'Classification (Odd One Out)', 'Coding-Decoding', 'Blood Relations', 'Direction Sense', 'Series (Number/Alphabet)', 'Ranking'],
+    'Analytical/Logical Reasoning': ['Syllogism', 'Statements & Conclusions', 'Assumptions', 'Arguments', 'Cause & Effect', 'Course of Action', 'Data Sufficiency'],
+    'Non-Verbal & Spatial Reasoning': ['Mirror/Water Images', 'Embedded Figures', 'Pattern Completion', 'Paper Folding/Cutting', 'Dice & Cube Problems'],
+    'Puzzles & Arrangements': ['Seating Arrangement (Linear/Circular)', 'Matrix Puzzle', 'Scheduling/Data-based Puzzles'],
+    'Physics': ['Units & Measurements', 'Mechanics', 'Work, Power & Energy', 'Gravitation', 'Light & Optics', 'Sound', 'Electricity & Magnetism', 'Heat & Thermodynamics'],
+    'Chemistry': ['Atomic Structure', 'Chemical Bonding', 'Acids, Bases & Salts', 'Metals & Non-metals', 'Periodic Table', 'Environmental Chemistry', 'Everyday Chemistry'],
+    'Biology': ['Cell Structure & Functions', 'Classification of Organisms', 'Human Anatomy & Physiology', 'Nutrition & Food', 'Health & Diseases'],
+    'Technology/Misc': ['Space Technology', 'Defense Tech', 'Renewable Energy', 'Nuclear Technology'],
+    'Indian History': ['Ancient', 'Medieval', 'Modern History'],
+    'Geography': ['Physical', 'Indian', 'World Geography'],
+    'Indian Polity': ['Constitution of India', 'Fundamental Rights', 'Parliament', 'Judiciary', 'Panchayati Raj'],
+    'Economy': ['Basics of Indian Economy', 'Banking System', 'Budget', 'Taxation', 'GDP', 'Inflation'],
+    'Current Affairs': ['National & International News', 'Government Schemes', 'Sports', 'Awards & Honors', 'Appointments'],
+    'Static GK': ['Important Dates', 'Books & Authors', 'Capitals & Currencies', 'Organizations'],
+    'Reading Comprehension': ['Passage Theme', 'Inference', 'Tone', 'Vocabulary'],
+    'Grammar': ['Error Detection', 'Sentence Improvement', 'Subject-Verb Agreement', 'Tenses', 'Articles', 'Prepositions', 'Active/Passive Voice', 'Direct/Indirect Speech'],
+    'Vocabulary': ['Synonyms & Antonyms', 'Idioms & Phrases', 'One Word Substitution', 'Spellings'],
+    'Sentence Structure': ['Sentence Rearrangement (Para Jumbles)', 'Cloze Test', 'Fill in the Blanks']
+  };
+
+  // Derived options for dropdowns
+  List<String> _getExamNames() => _allExamsData.map((e) => e['name'] as String).toList();
+  List<String> _getTopicOptionsForSelectedExam() {
+    if (exam == null) return _comprehensiveTopicToSubjectsMap.keys.toList(); // All topics if no exam selected
+    final selectedExamData = _allExamsData.firstWhere(
+          (e) => e['name'] == exam,
+      orElse: () => {"topics": <String>[]},
+    );
+    // FIX: Corrected type casting to avoid syntax error
+    // It should be `as List<dynamic>?` and then `?? []`
+    return List<String>.from(
+      (selectedExamData['topics'] as List<dynamic>?) ?? [],
+    );
+  }
+
+  final List<String> difficultyOptions = ['Easy', 'Medium', 'Hard']; // Difficulty is still global
+
+  void _onExamChanged(String? newExam) {
+    setState(() {
+      exam = newExam;
+      topic = null; // Reset topic when exam changes
+      subject = null; // Reset subject
+      section = null; // Reset section
+      subjectOptions = []; // Reset subject options
+      sectionOptions = []; // Reset section options
+    });
+  }
 
   void _onTopicChanged(String? newTopic) {
     setState(() {
       topic = newTopic;
       subject = null;
       section = null;
-      subjectOptions = newTopic!= null? topicToSubjectsMap[newTopic]! : [];
+      subjectOptions = newTopic!= null? _comprehensiveTopicToSubjectsMap[newTopic]! : [];
       sectionOptions = [];
     });
   }
@@ -69,7 +163,7 @@ class _ViewTestsScreenState extends State<ViewTestsScreen> {
     setState(() {
       subject = newSubject;
       section = null;
-      sectionOptions = newSubject!= null? subjectToSectionsMap[newSubject]?? [] : [];
+      sectionOptions = newSubject!= null? _comprehensiveSubjectToSectionsMap[newSubject]?? [] : [];
     });
   }
 
@@ -86,6 +180,48 @@ class _ViewTestsScreenState extends State<ViewTestsScreen> {
       subjectOptions = [];
       sectionOptions = [];
     });
+  }
+
+  // NEW: Method to handle editing a question (kept as is)
+  Future<void> _editQuestion(String testId, int questionIndex, Map<String, dynamic> initialQuestionData) async {
+    final Map<String, dynamic>? updatedQuestion = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EditQuestionScreen(
+          initialQuestionData: initialQuestionData,
+        ),
+      ),
+    );
+
+    if (updatedQuestion!= null) {
+      final DocumentReference testRef = FirebaseFirestore.instance.collection('tests').doc(testId);
+      final DocumentSnapshot testDoc = await testRef.get();
+
+      if (testDoc.exists) {
+        final Map<String, dynamic> currentTestData = testDoc.data() as Map<String, dynamic>;
+        // Create a modifiable list from the Firestore list
+        final List<dynamic> questions = List.from(currentTestData['questions']?? []);
+
+        if (questionIndex >= 0 && questionIndex < questions.length) {
+          questions[questionIndex] = updatedQuestion; // Update the specific question
+          await testRef.update({
+            'questions': questions,
+            'updatedAt': FieldValue.serverTimestamp(), // Optional: add an update timestamp
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Question updated successfully!')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Error: Question index out of bounds.')),
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error: Test document not found.')),
+        );
+      }
+    }
   }
 
   @override
@@ -146,10 +282,11 @@ class _ViewTestsScreenState extends State<ViewTestsScreen> {
                         (type) => type.name.replaceAllMapped(RegExp(r'(?<=[a-z])[A-Z]'), (match) => ' ${match.group(0)}').replaceFirstMapped(RegExp(r'^\w'), (match) => match.group(0)!.toUpperCase()),
                   ),
 
-                  _sidebarDropdown("Exam", exam, examOptions, (val) => setState(() => exam = val)),
-
+                  // NEW: Use _getExamNames() for exam options
+                  _sidebarDropdown("Exam", exam, _getExamNames(), _onExamChanged),
                   if (testType!= TestType.fullMock)...[
-                    _sidebarDropdown("Topic", topic, topicOptions, _onTopicChanged),
+                    // NEW: Use _getTopicOptionsForSelectedExam() for topic options
+                    _sidebarDropdown("Topic", topic, _getTopicOptionsForSelectedExam(), _onTopicChanged),
                     if (topic!= null)
                       _sidebarDropdown("Subject", subject, subjectOptions, _onSubjectChanged),
                     if (testType == TestType.sectionWise && subject!= null && sectionOptions.isNotEmpty)
@@ -211,9 +348,12 @@ class _ViewTestsScreenState extends State<ViewTestsScreen> {
                   itemCount: docs.length,
                   itemBuilder: (context, index) {
                     final data = docs[index].data() as Map<String, dynamic>;
+                    final String currentTestId = docs[index].id;
                     return _ExpandableTestTile(
+                      testId: currentTestId,
                       data: data,
-                      onDelete: () => _confirmDelete(docs[index].id, data['name']?? 'test'),
+                      onDelete: () => _confirmDelete(currentTestId, data['name']?? 'test'),
+                      onEditQuestion: _editQuestion,
                     );
                   },
                 );
@@ -255,7 +395,7 @@ class _ViewTestsScreenState extends State<ViewTestsScreen> {
               hint: Text("All $label", style: const TextStyle(fontSize: 14)),
               isExpanded: true,
               underline: const SizedBox(),
-              items: items, // Use the new list with the "All" option
+              items: items,
               onChanged: onSelected,
             ),
           ),
@@ -294,7 +434,7 @@ class _ViewTestsScreenState extends State<ViewTestsScreen> {
               hint: Text("All $label", style: const TextStyle(fontSize: 14)),
               isExpanded: true,
               underline: const SizedBox(),
-              items: items, // Use the new list
+              items: items,
               onChanged: onSelected,
             ),
           ),
@@ -322,10 +462,17 @@ class _ViewTestsScreenState extends State<ViewTestsScreen> {
 }
 
 class _ExpandableTestTile extends StatelessWidget {
+  final String testId;
   final Map<String, dynamic> data;
   final VoidCallback onDelete;
+  final Function(String testId, int questionIndex, Map<String, dynamic> initialQuestionData) onEditQuestion;
 
-  const _ExpandableTestTile({required this.data, required this.onDelete});
+  const _ExpandableTestTile({
+    required this.testId,
+    required this.data,
+    required this.onDelete,
+    required this.onEditQuestion,
+  });
 
   Widget _buildInfoChip(String text, IconData icon) {
     return Container(
@@ -398,6 +545,8 @@ class _ExpandableTestTile extends StatelessWidget {
                   _QuestionExpansionTile(
                     questionData: questions[i],
                     index: i,
+                    testId: testId,
+                    onEditQuestion: onEditQuestion,
                   ),
                 if (questions.isEmpty)
                   const Center(child: Padding(padding: EdgeInsets.all(32.0), child: Text("This test has no questions."))),
@@ -413,8 +562,15 @@ class _ExpandableTestTile extends StatelessWidget {
 class _QuestionExpansionTile extends StatelessWidget {
   final Map<String, dynamic> questionData;
   final int index;
+  final String testId;
+  final Function(String testId, int questionIndex, Map<String, dynamic> initialQuestionData) onEditQuestion;
 
-  const _QuestionExpansionTile({required this.questionData, required this.index});
+  const _QuestionExpansionTile({
+    required this.questionData,
+    required this.index,
+    required this.testId,
+    required this.onEditQuestion,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -430,6 +586,16 @@ class _QuestionExpansionTile extends StatelessWidget {
         ),
       ),
       title: Text(questionData['text_en']?? 'No question text', style: const TextStyle(fontWeight: FontWeight.w500)),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.edit, color: AppColors.primaryBlue, size: 20),
+            onPressed: () => onEditQuestion(testId, index, questionData),
+            tooltip: "Edit Question",
+          ),
+        ],
+      ),
       children: [
         Container(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -585,6 +751,258 @@ class _CompactTestCard extends StatelessWidget {
             ],
           )
         ],
+      ),
+    );
+  }
+}
+
+class EditQuestionScreen extends StatefulWidget {
+  final Map<String, dynamic> initialQuestionData;
+
+  const EditQuestionScreen({super.key, required this.initialQuestionData});
+
+  @override
+  State<EditQuestionScreen> createState() => _EditQuestionScreenState();
+}
+
+class _EditQuestionScreenState extends State<EditQuestionScreen> {
+  late TextEditingController _questionTextEnController;
+  late TextEditingController _questionTextTeController;
+  late TextEditingController _solutionEnController;
+  late TextEditingController _solutionTeController;
+
+  List<TextEditingController> _optionEnControllers = [];
+  List<TextEditingController> _optionTeControllers = [];
+  int _correctAnswerIndex = -1;
+
+  @override
+  void initState() {
+    super.initState();
+    _questionTextEnController = TextEditingController(text: widget.initialQuestionData['text_en']);
+    _questionTextTeController = TextEditingController(text: widget.initialQuestionData['text_te']);
+    _solutionEnController = TextEditingController(text: widget.initialQuestionData['solution_en']);
+    _solutionTeController = TextEditingController(text: widget.initialQuestionData['solution_te']);
+
+    _correctAnswerIndex = widget.initialQuestionData['correctAnswerIndex']?? -1;
+
+    List<dynamic> initialOptionsEn = widget.initialQuestionData['options_en']?? [];
+    for (String option in initialOptionsEn.cast<String>()) {
+      _optionEnControllers.add(TextEditingController(text: option));
+    }
+    while (_optionEnControllers.length < 4) {
+      _optionEnControllers.add(TextEditingController());
+    }
+
+    List<dynamic> initialOptionsTe = widget.initialQuestionData['options_te']?? [];
+    for (String option in initialOptionsTe.cast<String>()) {
+      _optionTeControllers.add(TextEditingController(text: option));
+    }
+    while (_optionTeControllers.length < 4) {
+      _optionTeControllers.add(TextEditingController());
+    }
+    int maxOptions = (_optionEnControllers.length > _optionTeControllers.length)? _optionEnControllers.length : _optionTeControllers.length;
+    while (_optionEnControllers.length < maxOptions) {
+      _optionEnControllers.add(TextEditingController());
+    }
+    while (_optionTeControllers.length < maxOptions) {
+      _optionTeControllers.add(TextEditingController());
+    }
+  }
+
+  @override
+  void dispose() {
+    _questionTextEnController.dispose();
+    _questionTextTeController.dispose();
+    _solutionEnController.dispose();
+    _solutionTeController.dispose();
+    for (var controller in _optionEnControllers) {
+      controller.dispose();
+    }
+    for (var controller in _optionTeControllers) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  void _saveChanges() {
+    if (_questionTextEnController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Question text (English) cannot be empty.')),
+      );
+      return;
+    }
+    if (_optionEnControllers.any((controller) => controller.text.trim().isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('All English options must have text.')),
+      );
+      return;
+    }
+    if (_questionTextTeController.text.trim().isNotEmpty && _optionTeControllers.any((controller) => controller.text.trim().isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('If Telugu question text is provided, all Telugu options must also have text.')),
+      );
+      return;
+    }
+
+    if (_correctAnswerIndex == -1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a correct answer.')),
+      );
+      return;
+    }
+
+    Map<String, dynamic> updatedQuestion = {
+      ...widget.initialQuestionData,
+      'text_en': _questionTextEnController.text.trim(),
+      'text_te': _questionTextTeController.text.trim(),
+      'solution_en': _solutionEnController.text.trim(),
+      'solution_te': _solutionTeController.text.trim(),
+      'options_en': _optionEnControllers.map((c) => c.text.trim()).toList(),
+      'options_te': _optionTeControllers.map((c) => c.text.trim()).toList(),
+      'correctAnswerIndex': _correctAnswerIndex,
+    };
+    Navigator.pop(context, updatedQuestion);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Edit Question"),
+        backgroundColor: AppColors.primaryBlue,
+        foregroundColor: Colors.white,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Question Text (English)", style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryText)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _questionTextEnController,
+              decoration: InputDecoration(
+                hintText: "Enter question in English",
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                filled: true,
+                fillColor: AppColors.background,
+              ),
+              maxLines: null,
+            ),
+            const SizedBox(height: 16),
+
+            Text("Question Text (Telugu - Optional)", style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryText)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _questionTextTeController,
+              decoration: InputDecoration(
+                hintText: "Enter question in Telugu (optional)",
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                filled: true,
+                fillColor: AppColors.background,
+              ),
+              maxLines: null,
+            ),
+            const SizedBox(height: 24),
+
+            const Text("Options:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primaryText)),
+            const SizedBox(height: 12),
+            for (int i = 0; i < _optionEnControllers.length; i++)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12.0),
+                child: Row(
+                  children: [
+                    Radio<int>(
+                      value: i,
+                      groupValue: _correctAnswerIndex,
+                      onChanged: (int? value) {
+                        setState(() {
+                          _correctAnswerIndex = value!;
+                        });
+                      },
+                      activeColor: AppColors.easy,
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("Option ${i + 1} (English)", style: TextStyle(fontSize: 12, color: AppColors.secondaryText)),
+                          TextField(
+                            controller: _optionEnControllers[i],
+                            decoration: InputDecoration(
+                              hintText: "Enter option ${i + 1} in English",
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                              filled: true,
+                              fillColor: AppColors.background,
+                              isDense: true,
+                              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text("Option ${i + 1} (Telugu)", style: TextStyle(fontSize: 12, color: AppColors.secondaryText)),
+                          TextField(
+                            controller: _optionTeControllers[i],
+                            decoration: InputDecoration(
+                              hintText: "Enter option ${i + 1} in Telugu (optional)",
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                              filled: true,
+                              fillColor: AppColors.background,
+                              isDense: true,
+                              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 24),
+
+            Text("Solution (English - Optional)", style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryText)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _solutionEnController,
+              decoration: InputDecoration(
+                hintText: "Enter solution in English (optional)",
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                filled: true,
+                fillColor: AppColors.background,
+              ),
+              maxLines: null,
+            ),
+            const SizedBox(height: 16),
+
+            Text("Solution (Telugu - Optional)", style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryText)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _solutionTeController,
+              decoration: InputDecoration(
+                hintText: "Enter solution in Telugu (optional)",
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                filled: true,
+                fillColor: AppColors.background,
+              ),
+              maxLines: null,
+            ),
+            const SizedBox(height: 32),
+
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _saveChanges,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryBlue,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                child: const Text("Save Changes", style: TextStyle(fontSize: 16)),
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
       ),
     );
   }
