@@ -54,6 +54,7 @@ class UnfinishedTest {
   final int currentQuestionIndex; // Where the user left off
   final Map<int, List<int>> selectedAnswers; // Their progress: {questionIndex: [selectedOptionIndex]}
   final int timeSpentSeconds; // How long they've spent on the test
+  final List<int>? markedForReviewQuestions; // <--- ADDED THIS NEW FIELD!
 
   UnfinishedTest({
     required this.testId,
@@ -61,6 +62,7 @@ class UnfinishedTest {
     required this.currentQuestionIndex,
     required this.selectedAnswers,
     required this.timeSpentSeconds,
+    this.markedForReviewQuestions, // <--- ADDED TO CONSTRUCTOR!
   });
 
   // Helper for displaying duration on HomeScreen (replaces your 'timeIn')
@@ -77,6 +79,7 @@ class UnfinishedTest {
       // The 'selectedAnswers' Map needs to be converted to a JSON string to be stored in SQLite
       'selectedAnswers': jsonEncode(selectedAnswers.map((key, value) => MapEntry(key.toString(), value))),
       'timeSpentSeconds': timeSpentSeconds,
+      'markedForReviewQuestions': markedForReviewQuestions!= null? jsonEncode(markedForReviewQuestions) : null, // <--- SAVED HERE!
     };
   }
 
@@ -91,6 +94,9 @@ class UnfinishedTest {
             (key, value) => MapEntry(int.parse(key), (value as List).cast<int>()),
       ),
       timeSpentSeconds: map['timeSpentSeconds'],
+      markedForReviewQuestions: map['markedForReviewQuestions']!= null
+          ? (jsonDecode(map['markedForReviewQuestions']) as List).cast<int>() // <--- LOADED HERE!
+          : null,
     );
   }
 }
