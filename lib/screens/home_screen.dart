@@ -154,7 +154,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               onTestResumed: _checkUnfinishedTest, // Pass callback to refresh state
             ),
             _PerformanceSnapshot(dbService: _dbService),
-            _FeaturedTests(dbService: _dbService), // Updated below
+            _FeaturedTests(dbService: _dbService,
+              unfinishedTest: _unfinishedTest,
+              fetchTestDocument: _fetchTestDocument,
+              onTestResumed: _checkUnfinishedTest,
+            ),
+            // Updated below
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 24, 16, 0),
               child: Text(
@@ -384,8 +389,15 @@ class _PerformanceSnapshot extends StatelessWidget {
 // --- _FeaturedTests (UPDATED) ---
 class _FeaturedTests extends StatelessWidget {
   final DatabaseService dbService;
-  const _FeaturedTests({required this.dbService});
-
+  final UnfinishedTest? unfinishedTest; // New
+  final Future<Map<String, dynamic>?> Function(String testId) fetchTestDocument; // New
+  final VoidCallback onTestResumed; // New
+  const _FeaturedTests({
+    required this.dbService,
+    required this.unfinishedTest,
+    required this.fetchTestDocument,
+    required this.onTestResumed,
+  });
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -408,22 +420,19 @@ class _FeaturedTests extends StatelessWidget {
             builder: (context, snapshot) {
               if (snapshot.hasError) return Center(child: Text("Error loading tests"));
               if (snapshot.connectionState == ConnectionState.waiting) return Center(child: CircularProgressIndicator());
-
               final featuredTests = snapshot.data?.docs?? [];
-
               if (featuredTests.isEmpty) {
                 return const Center(child: Text("No featured tests yet."));
               }
-
               return ListView.builder(
                 scrollDirection: Axis.horizontal,
                 itemCount: featuredTests.length,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 itemBuilder: (context, index) {
                   var data = featuredTests[index].data() as Map<String, dynamic>;
-                  // 7. Get the Firestore document ID to use as testId
                   String testId = featuredTests[index].id;
-
+                  // Check if this featured test is the unfinished one
+                  bool isUnfinishedFeaturedTest = unfinishedTest?.testId == testId;
                   return Card(
                     clipBehavior: Clip.antiAlias,
                     child: Container(
@@ -436,36 +445,80 @@ class _FeaturedTests extends StatelessWidget {
                           Text(data['name']?? 'Untitled', style: const TextStyle(fontWeight: FontWeight.bold)),
                           Text("${data['totalQuestions']?? 0} Questions", style: const TextStyle(fontSize: 12, color: Colors.grey)),
                           ElevatedButton(
-                            onPressed: () {
+                            onPressed: () async {
                               final String testName = data['name']?? 'Untitled Test';
                               final int duration = data['durationMinutes']?? 30;
                               final List<Map<String, dynamic>> questions =
                                   (data['questions'] as List?)
                                       ?.map((q) => q as Map<String, dynamic>)
                                       .toList()?? [];
-
                               if (questions.isEmpty) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(content: Text("This test has no questions yet!")),
                                 );
                                 return;
                               }
-
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => MockTestScreen(
-                                    // 8. PASS THE testId TO MOCKTESTSCREEN
-                                    testId: testId,
-                                    testName: testName,
-                                    durationMinutes: duration,
-                                    questions: questions,
+                              // Logic for "Resume Test" (if it's the unfinished one)
+                              // OR "Start Test" (if it's a new test)
+                              if (isUnfinishedFeaturedTest) {
+                                // Fetch the full test data for resuming
+                                final testDoc = await fetchTestDocument(testId);
+                                if (testDoc!= null) {
+                                  // Make sure questions are updated in case Firestore changed
+                                  final List<Map<String, dynamic>> resumedQuestions =
+                                      (testDoc['questions'] as List?)
+                                          ?.map((q) => q as Map<String, dynamic>)
+                                          .toList()?? [];
+                                  if (resumedQuestions.isEmpty) {
+                                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error: Test has no questions.")));
+                                    await dbService.clearUnfinishedTest();
+                                    onTestResumed();
+                                    return;
+                                  }
+                                  await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => MockTestScreen(
+                                        testId: testId,
+                                        testName: testName,
+                                        durationMinutes: duration,
+                                        questions: resumedQuestions,
+                                      ),
+                                    ),
+                                  );
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text("Could not find test to resume. It may have been deleted.")),
+                                  );
+                                  await dbService.clearUnfinishedTest();
+                                }
+                              } else {
+                                // Logic for starting a new test
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => MockTestScreen(
+                                      testId: testId,
+                                      testName: testName,
+                                      durationMinutes: duration,
+                                      questions: questions,
+                                    ),
                                   ),
-                                ),
-                              );
+                                );
+                              }
+                              onTestResumed(); // Refresh the home screen state after returning
                             },
                             style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(40)),
-                            child: const Text("Start Test"),
+                            child: Row( // Use a Row to potentially add an icon
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                if (isUnfinishedFeaturedTest)...[
+                                  const Icon(Icons.refresh, size: 20), // Reload icon for resume
+                                  const SizedBox(width: 8),
+                                ],
+                                Text(isUnfinishedFeaturedTest? "Resume Test" : "Start Test"),
+                              ],
+                            ),
                           )
                         ],
                       ),
@@ -480,7 +533,6 @@ class _FeaturedTests extends StatelessWidget {
     );
   }
 }
-
 // --- _ActionGrid (No changes needed) ---
 class _ActionGrid extends StatelessWidget {
   //... your existing code...

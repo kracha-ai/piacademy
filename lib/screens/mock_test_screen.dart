@@ -18,6 +18,7 @@ class MockTestScreen extends StatefulWidget {
   final String? testFile;
   final String? language;
 
+  // These are the crucial fields for identifying and loading the test from Firestore/resume
   final String? testId;
   final String? testName;
   final int? durationMinutes;
@@ -34,7 +35,7 @@ class MockTestScreen extends StatefulWidget {
     this.testId,
     this.testName,
     this.durationMinutes,
-    required this.questions,
+    required this.questions, // This should contain the actual question data
   });
 
   @override
@@ -43,83 +44,115 @@ class MockTestScreen extends StatefulWidget {
 
 class _MockTestScreenState extends State<MockTestScreen> {
   List<Question> questions = [];
-  // Store Duration for each question
-  List<Duration> questionTimes = [];
+  List<Duration> questionTimes = []; // Store time spent per question
   bool showNavigator = false;
   int currentQuestionIndex = 0;
   int score = 0;
   late String selectedLanguage;
   bool isLoading = true;
 
-  late Timer _timer;
-  final Stopwatch _totalStopwatch = Stopwatch(); // For count-up timer
+  late Timer _timer; // Main test timer (countdown or count-up)
+  final Stopwatch _totalStopwatch = Stopwatch(); // For count-up timer if no duration limit
   final Stopwatch _questionStopwatch = Stopwatch(); // For current question timer
-  Duration _currentQuestionElapsed = Duration.zero;
-  Duration _totalElapsed = Duration.zero;
-  int? _remainingSeconds; // For countdown timer
 
-  // Track the actual starting time for the countdown, for pausing/resuming
-  int? _countdownStartSeconds;
+  // --- FIX 1: Declared as state variables ---
+  Duration _currentQuestionElapsed = Duration.zero; // Time elapsed for the current question
+  Duration _totalElapsed = Duration.zero; // Total elapsed time for the test (for display)
+  // --- END FIX 1 ---
+
+  Duration _totalTimeSpentActual = Duration.zero; // For accurate time calculation when disposing
+
+  int? _remainingSeconds; // For countdown timer display
+  int? _initialDurationSeconds; // Store initial duration for calculation
 
   final DatabaseService _dbService = DatabaseService();
-  Map<int, List<int>> _selectedAnswers = {};
-  Set<int> _markedForReview = {};
+  Map<int, List<int>> _selectedAnswers = {}; // {questionIndex: [selectedOptionIndex]}
+  Set<int> _markedForReview = {}; // Set of question indices marked for review
 
-  PageController _pageController = PageController();
+  late PageController _pageController;
 
   @override
   void initState() {
     super.initState();
     selectedLanguage = widget.language?? 'en';
+    _loadQuestionData(); // Load questions first
+
+    // Initialize questionTimes with zero duration for each question
+    questionTimes = List.generate(questions.length, (index) => Duration.zero);
+
     _pageController = PageController(initialPage: currentQuestionIndex);
-    _loadOrStartTest();
+    _loadOrStartTest(); // Then load existing progress or start new
   }
 
   Future<void> _loadOrStartTest() async {
-    _loadQuestionData();
-
     final savedProgress = await _dbService.getUnfinishedTest();
 
-    if (savedProgress!= null && savedProgress.testId == widget.testId) {
-      print("Resuming test '${widget.testName}'...");
+    // Determine the unique test identifier for the current test being launched
+    // Use widget.testId if available (for Firestore-backed tests), otherwise fallback to other unique identifiers
+    final String currentLaunchedTestId = widget.testId?? widget.testFile?? "${widget.exam?? ''}_${widget.topic?? ''}_${widget.subject?? ''}";
+
+    // Check if there's saved progress AND if it's for the CURRENT test being launched
+    if (savedProgress!= null && savedProgress.testId == currentLaunchedTestId) {
+      print("MockTestScreen: Resuming test '${widget.testName}' (ID: ${savedProgress.testId})...");
       setState(() {
         currentQuestionIndex = savedProgress.currentQuestionIndex;
         _selectedAnswers = savedProgress.selectedAnswers;
         _markedForReview = savedProgress.markedForReviewQuestions?.toSet()?? {};
-        questionTimes = List.generate(questions.length, (index) => Duration.zero);
+        // Restore questionTimes (if saved, otherwise use savedProgress.timeSpentSeconds for _totalTimeSpentActual)
+        // For now, we only save _totalTimeSpentActual, not individual questionTimes
+        _totalTimeSpentActual = Duration(seconds: savedProgress.timeSpentSeconds);
 
-        if (widget.durationMinutes!= null) {
-          _countdownStartSeconds = (widget.durationMinutes! * 60);
-          _remainingSeconds = _countdownStartSeconds! - savedProgress.timeSpentSeconds;
-          if (_remainingSeconds! < 0) _remainingSeconds = 0;
+        _initialDurationSeconds = widget.durationMinutes!= null? (widget.durationMinutes! * 60) : null;
+
+        if (_initialDurationSeconds!= null) {
+          // If it's a countdown test
+          _remainingSeconds = _initialDurationSeconds! - savedProgress.timeSpentSeconds;
+          if (_remainingSeconds! < 0) _remainingSeconds = 0; // Ensure remaining time is not negative
           _startCountdownTimer();
         } else {
-          _totalElapsed = Duration(seconds: savedProgress.timeSpentSeconds);
+          // If it's a count-up test
           _totalStopwatch.start();
-          _startTestTimer();
+          // _totalStopwatch.elapsedMicroseconds; // Initialize stopwatch elapsed time
+          // This line is not needed, _totalStopwatch.elapsed will start from zero,
+          // and _totalElapsed will correctly add _totalTimeSpentActual.
+          _startTestTimer(); // Starts the timer for total elapsed time
         }
         isLoading = false;
       });
-      _pageController.jumpToPage(currentQuestionIndex);
-      _startQuestionTimer(resume: true);
-      _showSnackBar("Resuming test...", Colors.blue);
+      // Jump to the saved question, but only if the PageController is ready
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_pageController.hasClients) {
+          _pageController.jumpToPage(currentQuestionIndex);
+        }
+      });
+      _startQuestionTimer(resume: true); // Start timer for current question
+      _showSnackBar("Resuming test '${widget.testName}'...", Colors.blue);
     } else {
-      print("Starting new test '${widget.testName}'...");
+      // If no saved progress, or saved progress is for a different test, start a new test
+      print("MockTestScreen: Starting new test '${widget.testName}' (ID: $currentLaunchedTestId)...");
+      // If there was an unfinished test for a *different* ID, clear it
+      if (savedProgress!= null && savedProgress.testId!= currentLaunchedTestId) {
+        await _dbService.clearUnfinishedTest();
+        print("MockTestScreen: Cleared old unfinished test (ID: ${savedProgress.testId}) from local DB as it was for a different test.");
+      }
+
       setState(() {
         currentQuestionIndex = 0;
         _selectedAnswers = {};
         _markedForReview = {};
-        questionTimes = List.generate(questions.length, (index) => Duration.zero);
-        if (widget.durationMinutes!= null) {
-          _countdownStartSeconds = widget.durationMinutes! * 60;
-          _remainingSeconds = _countdownStartSeconds;
+        _totalTimeSpentActual = Duration.zero; // Reset actual time spent
+        _initialDurationSeconds = widget.durationMinutes!= null? (widget.durationMinutes! * 60) : null;
+
+        if (_initialDurationSeconds!= null) {
+          _remainingSeconds = _initialDurationSeconds;
           _startCountdownTimer();
         } else {
-          _startTestTimer();
+          _totalStopwatch.start();
+          _startTestTimer(); // Starts the timer for total elapsed time
         }
         isLoading = false;
       });
-      _startQuestionTimer();
+      _startQuestionTimer(); // Start timer for current question
     }
   }
 
@@ -127,92 +160,75 @@ class _MockTestScreenState extends State<MockTestScreen> {
     List<Map<String, dynamic>> sourceQuestions;
 
     if (widget.questions.isNotEmpty) {
+      // Questions explicitly passed, use them
       sourceQuestions = widget.questions;
     } else if (widget.testData!= null && widget.testData!['questions']!= null) {
+      // Questions within testData (e.g., from Firestore)
       sourceQuestions = List<Map<String, dynamic>>.from(widget.testData!['questions']);
     } else if (widget.testFile!= null) {
-      print("Loading from local test file. Resume functionality may not work without a unique testId.");
-      return;
+      // Assuming testFile implies questions are loaded via parseQuestions from a local asset
+      // For now, this path doesn't automatically load questions here as it needs a Future<String> load,
+      // which is outside the scope of initState. You'd need to manage this as a FutureBuilder or similar.
+      // For simplicity, we'll proceed with an empty list if this is the only path.
+      print("MockTestScreen: Loading from local test file specified by testFile. Ensure questions are loaded elsewhere or pass via 'questions'.");
+      sourceQuestions = []; // Will result in "No Questions Available" if not loaded elsewhere
     } else {
-      sourceQuestions = [];
+      sourceQuestions = []; // Default to empty if no source
     }
-
     questions = sourceQuestions.map((map) => Question.fromMap(map)).toList();
+    // Re-initialize questionTimes list to match the new questions length
+    questionTimes = List.generate(questions.length, (index) => Duration.zero);
   }
 
   @override
   void dispose() {
+    // Make sure to cancel timers and stop stopwatches before disposing
     _timer.cancel();
     _totalStopwatch.stop();
     _questionStopwatch.stop();
     _pageController.dispose();
+
+    // IMPORTANT: Save progress when disposing the screen
+    // This handles scenarios where the user exits via back button, home button, app killed, etc.
+    _saveProgress();
+
     super.dispose();
   }
 
   Future<bool> _onWillPop() async {
-    if (showNavigator) {
-      setState(() {
-        showNavigator = false;
-      });
-      return false;
-    }
-
-    _questionStopwatch.stop();
-    _saveCurrentQuestionTime();
-
-    final shouldPop = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Exit Test?'),
-        content: const Text('Your progress will be saved. Do you want to exit?'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              _startQuestionTimer(resume: true);
-              Navigator.of(context).pop(false);
-            },
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              _timer.cancel();
-              _totalStopwatch.stop();
-              _questionStopwatch.stop();
-              _saveProgress();
-              Navigator.of(context).pop(true);
-            },
-            child: const Text('Save & Exit'),
-          ),
-        ],
-      ),
-    );
-    return shouldPop?? false;
+    // This is now handled by PopScope's onPopInvoked directly
+    return false; // Prevent default pop behavior as onPopInvoked handles it
   }
 
   Future<void> _saveProgress() async {
-    if (widget.testId == null) {
-      print("Cannot save progress: testId is null.");
+    // Determine the unique test identifier for the current test
+    final String testIdentifier = widget.testId?? widget.testFile?? "${widget.exam?? ''}_${widget.topic?? ''}_${widget.subject?? ''}";
+
+    if (questions.isEmpty || testIdentifier.isEmpty) {
+      print("MockTestScreen: Cannot save progress. Questions are empty or test identifier is null/empty.");
       return;
     }
 
+    // Save time for the question the user is currently on before saving global progress
     _saveCurrentQuestionTime();
 
-    final int timeSpent = _remainingSeconds!= null
-        ? (_countdownStartSeconds! - _remainingSeconds!)
-        : _totalStopwatch.elapsed.inSeconds;
+    // Calculate total time spent based on timer type
+    final int timeSpentSeconds = _initialDurationSeconds!= null // If it's a countdown
+        ? (_initialDurationSeconds! - (_remainingSeconds?? 0)) // Initial duration minus remaining
+        : (_totalStopwatch.elapsed + _totalTimeSpentActual).inSeconds; // If it's a count-up, use stopwatch elapsed + previously spent time
 
     final progress = UnfinishedTest(
-      testId: widget.testId!,
+      testId: testIdentifier,
       testName: widget.testName?? 'Unknown Test',
       currentQuestionIndex: currentQuestionIndex,
-      selectedAnswers: _selectedAnswers,
-      timeSpentSeconds: timeSpent,
-      markedForReviewQuestions: _markedForReview.toList(),
-      // Add questionTimes to UnfinishedTest model once implemented
+      selectedAnswers: _selectedAnswers, // Save all selected answers (Map<int, List<int>>)
+      timeSpentSeconds: timeSpentSeconds,
+      markedForReviewQuestions: _markedForReview.toList(), // Save marked questions as a list
     );
 
     await _dbService.saveUnfinishedTest(progress);
     _showSnackBar("Progress Saved!", Colors.orange);
+    print("MockTestScreen: Progress saved for ${progress.testName}, Q:${progress.currentQuestionIndex + 1}, Time:${progress.timeSpentSeconds}s");
   }
 
   void _showSnackBar(String message, Color color) {
@@ -264,7 +280,7 @@ class _MockTestScreenState extends State<MockTestScreen> {
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
         setState(() {
-          _totalElapsed = _totalStopwatch.elapsed;
+          _totalElapsed = _totalStopwatch.elapsed + _totalTimeSpentActual; // Add any previously elapsed time
           _currentQuestionElapsed = questionTimes[currentQuestionIndex] + _questionStopwatch.elapsed;
         });
       }
@@ -275,8 +291,9 @@ class _MockTestScreenState extends State<MockTestScreen> {
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
         setState(() {
-          if (_remainingSeconds! > 0) {
+          if (_remainingSeconds!= null && _remainingSeconds! > 0) {
             _remainingSeconds = _remainingSeconds! - 1;
+            _totalTimeSpentActual = Duration(seconds: _totalTimeSpentActual.inSeconds + 1); // Increment actual time spent
           } else {
             timer.cancel();
             _confirmAndSubmitTest(autoSubmitted: true);
@@ -288,22 +305,24 @@ class _MockTestScreenState extends State<MockTestScreen> {
   }
 
   void _startQuestionTimer({bool resume = false}) {
-    _questionStopwatch.stop();
-    _questionStopwatch.reset();
+    _questionStopwatch.stop(); // Stop previous question timer
+    _questionStopwatch.reset(); // Reset for new question
 
     if (resume && currentQuestionIndex < questionTimes.length) {
+      // If resuming and there's saved time for this question, set it
       _currentQuestionElapsed = questionTimes[currentQuestionIndex];
     } else {
-      _currentQuestionElapsed = Duration.zero;
+      _currentQuestionElapsed = Duration.zero; // Start from zero for new question
     }
     _questionStopwatch.start();
   }
 
   void _saveCurrentQuestionTime() {
-    _questionStopwatch.stop();
-    if (currentQuestionIndex < questions.length && currentQuestionIndex < questionTimes.length) {
+    // Only save if stopwatches are running and current question is valid
+    if (_questionStopwatch.isRunning && currentQuestionIndex < questions.length && currentQuestionIndex < questionTimes.length) {
       questionTimes[currentQuestionIndex] += _questionStopwatch.elapsed;
     }
+    _questionStopwatch.stop(); // Stop stopwatch for the current question
   }
 
   String _formatDuration(Duration duration) {
@@ -349,7 +368,7 @@ class _MockTestScreenState extends State<MockTestScreen> {
 
   void _goToQuestion(int index) {
     if (index >= 0 && index < questions.length) {
-      _saveCurrentQuestionTime();
+      _saveCurrentQuestionTime(); // Save time for the question user is leaving
 
       setState(() {
         currentQuestionIndex = index;
@@ -359,13 +378,13 @@ class _MockTestScreenState extends State<MockTestScreen> {
           curve: Curves.easeOut,
         );
         showNavigator = false;
-        _startQuestionTimer(resume: true);
+        _startQuestionTimer(resume: true); // Start timer for the new current question
       });
     }
   }
 
   Future<void> _confirmAndSubmitTest({bool autoSubmitted = false}) async {
-    _saveCurrentQuestionTime();
+    _saveCurrentQuestionTime(); // Ensure current question's time is saved
 
     int answeredCount = 0;
     int unansweredCount = 0;
@@ -373,7 +392,7 @@ class _MockTestScreenState extends State<MockTestScreen> {
     int markedForReviewUnansweredCount = 0;
 
     for (int i = 0; i < questions.length; i++) {
-      bool isAnswered = _selectedAnswers.containsKey(i);
+      bool isAnswered = _selectedAnswers.containsKey(i) && _selectedAnswers[i]!.isNotEmpty;
       bool isMarked = _markedForReview.contains(i);
 
       if (isAnswered) {
@@ -389,7 +408,6 @@ class _MockTestScreenState extends State<MockTestScreen> {
       }
     }
 
-    // Show the dialog
     final bool? shouldSubmit = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -496,8 +514,8 @@ class _MockTestScreenState extends State<MockTestScreen> {
       _questionStopwatch.stop();
       _submitTestInternal();
     } else {
-      // No need to restart main timer here, it continued running.
-      // Question timer is restarted by "Go Back" button.
+      // If user cancels submission, main timer is still running.
+      // Question timer is restarted by "Go Back" button inside the dialog.
     }
   }
 
@@ -510,7 +528,7 @@ class _MockTestScreenState extends State<MockTestScreen> {
         children: [
           Text(
             label,
-            style: TextStyle(fontSize: 15, color: color?? textColor), // Apply color to label as well for consistency
+            style: TextStyle(fontSize: 15, color: color?? textColor),
           ),
           Text(
             count.toString(),
@@ -526,9 +544,11 @@ class _MockTestScreenState extends State<MockTestScreen> {
   }
 
   void _submitTestInternal() async {
+    // Clear any unfinished test progress because the test is now officially submitted
     await _dbService.clearUnfinishedTest();
 
     score = 0;
+    // Extract user's first selected answer for each question (assuming single choice)
     final userAnswersList = List.generate(questions.length, (i) => _selectedAnswers[i]?.first);
 
     for (int i = 0; i < questions.length; i++) {
@@ -537,9 +557,10 @@ class _MockTestScreenState extends State<MockTestScreen> {
       }
     }
 
-    final Duration totalTimeSpent = _remainingSeconds!= null
-        ? Duration(seconds: _countdownStartSeconds! - _remainingSeconds!)
-        : _totalStopwatch.elapsed;
+    // Determine the actual total time spent on the test
+    final Duration totalTimeSpent = _initialDurationSeconds!= null
+        ? Duration(seconds: _initialDurationSeconds! - (_remainingSeconds?? 0))
+        : (_totalStopwatch.elapsed + _totalTimeSpentActual); // Add previously spent time for count-up
 
     try {
       await _dbService.saveTestResult(
@@ -549,7 +570,7 @@ class _MockTestScreenState extends State<MockTestScreen> {
         totalQuestions: questions.length,
         timeTaken: totalTimeSpent,
         userAnswers: userAnswersList,
-        // questionTimes: questionTimes, // Add once UnfinishedTest is updated
+        // questionTimes: questionTimes, // You might want to save this to result for detailed analysis
       );
     } catch (e) {
       print("UI Error saving test result: $e");
@@ -568,7 +589,7 @@ class _MockTestScreenState extends State<MockTestScreen> {
           questions: questions,
           userAnswers: userAnswersList,
           totalTime: totalTimeSpent,
-          questionTimes: questionTimes,
+          questionTimes: questionTimes, // Pass individual question times to result screen
         ),
       ),
     );
@@ -577,19 +598,21 @@ class _MockTestScreenState extends State<MockTestScreen> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop:!showNavigator,
+      canPop:!showNavigator, // Allow pop if navigator is not open
       onPopInvoked: (didPop) async {
-        if (didPop) return;
+        if (didPop) return; // If the system already handled the pop, do nothing
 
         if (showNavigator) {
+          // If navigator is open, just close it and don't pop the screen
           setState(() {
             showNavigator = false;
           });
           return;
         }
 
-        _questionStopwatch.stop();
-        _saveCurrentQuestionTime();
+        // Standard exit test dialog flow
+        _questionStopwatch.stop(); // Stop current question timer before dialog
+        _saveCurrentQuestionTime(); // Save time for the question user is leaving
 
         final shouldPop = await showDialog<bool>(
           context: context,
@@ -599,18 +622,18 @@ class _MockTestScreenState extends State<MockTestScreen> {
             actions: [
               TextButton(
                 onPressed: () {
-                  _startQuestionTimer(resume: true);
-                  Navigator.of(context).pop(false);
+                  _startQuestionTimer(resume: true); // Resume question timer if cancelled
+                  Navigator.of(context).pop(false); // Do not pop the screen
                 },
                 child: const Text('Cancel'),
               ),
               TextButton(
                 onPressed: () {
-                  _timer.cancel();
-                  _totalStopwatch.stop();
-                  _questionStopwatch.stop();
-                  _saveProgress();
-                  Navigator.of(context).pop(true);
+                  _timer.cancel(); // Cancel main test timer
+                  _totalStopwatch.stop(); // Stop total elapsed stopwatch
+                  _questionStopwatch.stop(); // Stop current question stopwatch
+                  _saveProgress(); // Save all current progress
+                  Navigator.of(context).pop(true); // Allow popping the screen
                 },
                 child: const Text('Save & Exit'),
               ),
@@ -618,7 +641,7 @@ class _MockTestScreenState extends State<MockTestScreen> {
           ),
         );
         if (shouldPop?? false) {
-          if (mounted) Navigator.of(context).pop();
+          if (mounted) Navigator.of(context).pop(); // Actually pop the screen if user confirmed
         }
       },
       child: Scaffold(
@@ -627,13 +650,13 @@ class _MockTestScreenState extends State<MockTestScreen> {
           actions: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8.0),
-              child: Row( // Wrap with Row to place icon next to text
+              child: Row(
                 children: [
-                  Icon(Icons.timer, size: 20, color: Theme.of(context).appBarTheme.foregroundColor), // Timer icon
-                  const SizedBox(width: 4), // Small spacing
+                  Icon(Icons.timer, size: 20, color: Theme.of(context).appBarTheme.foregroundColor),
+                  const SizedBox(width: 4),
                   Center(
                     child: Text(
-                      _remainingSeconds!= null? _formatSeconds(_remainingSeconds!) : _formatDuration(_totalElapsed),
+                      _initialDurationSeconds!= null? _formatSeconds(_remainingSeconds?? 0) : _formatDuration(_totalElapsed),
                       style: TextStyle(
                         color: Theme.of(context).appBarTheme.foregroundColor,
                         fontWeight: FontWeight.bold,
@@ -679,11 +702,11 @@ class _MockTestScreenState extends State<MockTestScreen> {
           final Color navigatorPanelColor = isDarkTheme? Colors.grey.shade900 : Colors.white;
 
           // New Color Coding for Navigation Panel
-          final Color navCurrentColor = Theme.of(context).primaryColor; // Current
-          final Color navAnsweredColor = Colors.green.shade600; // Answered
-          final Color navMarkedColor = Colors.purple.shade400; // Updated: Marked for Review (Easier to see star)
-          final Color navAnsweredMarkedColor = Colors.teal.shade500; // Answered and Marked
-          final Color navUnansweredColor = isDarkTheme? Colors.grey.shade700 : Colors.grey.shade300; // Unanswered
+          final Color navCurrentColor = Theme.of(context).primaryColor;
+          final Color navAnsweredColor = Colors.green.shade600;
+          final Color navMarkedColor = Colors.purple.shade400;
+          final Color navAnsweredMarkedColor = Colors.teal.shade500;
+          final Color navUnansweredColor = isDarkTheme? Colors.grey.shade700 : Colors.grey.shade300;
 
           const double navigatorPanelWidth = 250.0;
           const double toggleButtonTopPosition = 550.0;
@@ -704,18 +727,17 @@ class _MockTestScreenState extends State<MockTestScreen> {
                     controller: _pageController,
                     itemCount: questions.length,
                     onPageChanged: (index) {
-                      _saveCurrentQuestionTime();
+                      _saveCurrentQuestionTime(); // Save time for the question user is leaving
 
                       setState(() {
                         currentQuestionIndex = index;
-                        _startQuestionTimer(resume: true);
+                        _startQuestionTimer(resume: true); // Start timer for the new current question
                       });
                     },
                     itemBuilder: (context, qIndex) {
                       final questionDataForPage = questions[qIndex];
                       final bool isCurrentQuestionPage = (qIndex == currentQuestionIndex);
 
-                      // Determine if the current question being built in the PageView is marked for review
                       final bool isQuestionMarkedForReview = _markedForReview.contains(qIndex);
 
                       return Padding(
@@ -726,7 +748,7 @@ class _MockTestScreenState extends State<MockTestScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Row( // Added Row for Question number + Star
+                                Row(
                                   children: [
                                     Text(
                                       "Question ${currentQuestionIndex + 1} of ${questions.length}",
@@ -774,10 +796,13 @@ class _MockTestScreenState extends State<MockTestScreen> {
                                 itemCount: questionDataForPage.optionsEn.length,
                                 itemBuilder: (context, index) {
                                   List<String> labels = ["A", "B", "C", "D"];
+                                  // Check if the current option is the *first* selected option for this question
+                                  // Assuming single answer for display based on current UI
                                   bool isSelected = (_selectedAnswers[qIndex]?.firstOrNull == index);
                                   return GestureDetector(
                                     onTap: isCurrentQuestionPage? () {
                                       setState(() {
+                                        // Store as a list containing a single selected option
                                         _selectedAnswers[qIndex] = [index];
                                       });
                                     } : null,
@@ -854,7 +879,7 @@ class _MockTestScreenState extends State<MockTestScreen> {
                                               ),
                                               const SizedBox(width: 8),
                                               Text(
-                                                _markedForReview.contains(currentQuestionIndex)? "Unmark" : "Mark for Review", // Dynamic text
+                                                _markedForReview.contains(currentQuestionIndex)? "Unmark" : "Mark for Review",
                                                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
                                               ),
                                             ],
@@ -897,9 +922,9 @@ class _MockTestScreenState extends State<MockTestScreen> {
                                             children: [
                                               const Icon(Icons.close, color: Colors.white, size: 20),
                                               const SizedBox(width: 8),
-                                              Text(
+                                              const Text(
                                                 "Erase Answer",
-                                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
                                               ),
                                             ],
                                           ),
@@ -929,7 +954,7 @@ class _MockTestScreenState extends State<MockTestScreen> {
                                 ),
                                 SizedBox(
                                   height: 40,
-                                  child: ElevatedButton.icon( // Changed to ElevatedButton.icon
+                                  child: ElevatedButton.icon(
                                     onPressed: () => _confirmAndSubmitTest(autoSubmitted: false),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.green,
@@ -939,7 +964,7 @@ class _MockTestScreenState extends State<MockTestScreen> {
                                       elevation: 5,
                                       shadowColor: Colors.green.shade700.withOpacity(0.5),
                                     ),
-                                    icon: const Icon(Icons.check, color: Colors.white), // Added check icon
+                                    icon: const Icon(Icons.check, color: Colors.white),
                                     label: const Text(
                                       "Submit Test",
                                       style: TextStyle(
@@ -988,7 +1013,7 @@ class _MockTestScreenState extends State<MockTestScreen> {
                       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 4, crossAxisSpacing: 6, mainAxisSpacing: 6),
                       itemCount: questions.length,
                       itemBuilder: (context, index) {
-                        bool isAnswered = _selectedAnswers.containsKey(index);
+                        bool isAnswered = _selectedAnswers.containsKey(index) && _selectedAnswers[index]!.isNotEmpty;
                         bool isMarkedForReview = _markedForReview.contains(index);
                         bool isCurrent = currentQuestionIndex == index;
 
@@ -1000,12 +1025,12 @@ class _MockTestScreenState extends State<MockTestScreen> {
                         } else if (isMarkedForReview && isAnswered) {
                           bgColor = navAnsweredMarkedColor;
                         } else if (isMarkedForReview) {
-                          bgColor = navMarkedColor; // This will now be purple.
+                          bgColor = navMarkedColor;
                         } else if (isAnswered) {
                           bgColor = navAnsweredColor;
                         } else {
                           bgColor = navUnansweredColor;
-                          textColor = primaryTextColor;
+                          textColor = primaryTextColor; // Use primary text color for unanswered in light mode
                         }
 
                         return GestureDetector(

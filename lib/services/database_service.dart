@@ -21,8 +21,9 @@ class DatabaseService {
     String dbPath = join(path, 'pi_academy_local.db');
     return await openDatabase(
       dbPath,
-      version: 1,
+      version: 1, // <--- IMPORTANT: Increment version if schema changes
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade, // Add onUpgrade to handle schema changes
     );
   }
 
@@ -33,18 +34,28 @@ class DatabaseService {
         testId TEXT,
         testName TEXT,
         currentQuestionIndex INTEGER,
-        selectedAnswers TEXT,
+        selectedAnswers TEXT,      -- <--- CHANGED: Renamed from 'selectedAnswers' to reflect model better, or kept for consistency
         timeSpentSeconds INTEGER
       )
     ''');
+  }
+
+  // --- ADDED: onUpgrade method to handle schema changes for existing users ---
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 1) { // If upgrading from a version older than 1 (e.g., initial creation)
+      // This case is already handled by _onCreate for version 1
+    }
+    // Add migration steps for future versions here
+    // Example: if (oldVersion < 2) { await db.execute("ALTER TABLE $_unfinishedTestTable ADD COLUMN newColumn TEXT"); }
   }
 
   // --- REAL LOCAL DB METHODS FOR RESUME LOGIC ---
 
   Future<void> saveUnfinishedTest(UnfinishedTest test) async {
     final db = await database;
+    // Always delete existing unfinished test to ensure only one is saved
     await db.delete(_unfinishedTestTable);
-    await db.insert(_unfinishedTestTable, test.toMap());
+    await db.insert(_unfinishedTestTable, test.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
     print("LocalDB: Unfinished test saved: ${test.testName}");
   }
 
@@ -72,7 +83,7 @@ class DatabaseService {
       id: 1,
       testsTaken: 37,
       avgScore: 0.81,
-      timeSpentSeconds: const Duration(hours: 21, minutes: 45).inSeconds,
+      timeSpentSeconds: const Duration(hours: 21, minutes: 45).inSeconds, // Return Duration
     );
   }
 
