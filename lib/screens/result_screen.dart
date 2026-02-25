@@ -96,6 +96,23 @@ class _ResultScreenState extends State<ResultScreen> {
     final int incorrectCount = widget.questions.where((q) => widget.userAnswers[widget.questions.indexOf(q)]!= null && widget.userAnswers[widget.questions.indexOf(q)]!= q.correctIndex).length;
     final int unansweredCount = widget.total - correctCount - incorrectCount;
     final double percentage = (widget.total > 0)? (widget.score / widget.total) * 100 : 0.0; // Prevent NaN
+
+    // To show user performance//
+    String performanceText;
+    Color performanceColor;
+
+    if (percentage >= 80) {
+      performanceText = "Excellent Performance 🎉";
+      performanceColor = Colors.green;
+    } else if (percentage >= 50) {
+      performanceText = "Good Job 👍";
+      performanceColor = Colors.orange;
+    } else {
+      performanceText = "Needs Improvement 📚";
+      performanceColor = Colors.red;
+    }
+    // To show user performance//
+
     final Duration averageTimePerQuestion = Duration(milliseconds: widget.totalTime.inMilliseconds ~/ (widget.total > 0? widget.total : 1)); // Avoid division by zero
 
     // Get the filtered list of question indices
@@ -141,6 +158,19 @@ class _ResultScreenState extends State<ResultScreen> {
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 15),
+                    //This actually shows the performance text//
+                    Text(
+                      performanceText,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: performanceColor,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 10),
+                    //This actually shows the performance text//
+
                     Stack( // To place percentage on score
                       alignment: Alignment.center,
                       children: [
@@ -335,6 +365,8 @@ class _ResultScreenState extends State<ResultScreen> {
                           ),
                           // --- ADDED CATEGORY DISPLAY HERE ---
                           if (question.category!= null && question.category!.isNotEmpty)
+
+
                             Padding(
                               padding: const EdgeInsets.only(top: 4.0),
                               child: Text(
@@ -347,6 +379,23 @@ class _ResultScreenState extends State<ResultScreen> {
                               ),
                             ),
                           // --- END ADDED CATEGORY DISPLAY ---
+                          if (question.askedIn.isNotEmpty)
+                            Container(
+                              margin: const EdgeInsets.only(top: 6),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: highlightColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                question.askedIn,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: highlightColor,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
                         ],
                       ),
                       children: [
