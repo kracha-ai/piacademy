@@ -118,6 +118,43 @@ class _ResultScreenState extends State<ResultScreen> {
     // Get the filtered list of question indices
     final List<int> filteredQuestionIndices = _getFilteredQuestionIndices();
 
+    // --- NEW: Calculate Analysis Stats ---
+    int slowQuestionsCount = 0;
+    String mostMistakesCategory = "N/A";
+    Duration fastestQuestionTime = Duration(days: 999); // Initialize with a very large duration
+    String fastestQuestionNumber = "N/A";
+
+    Map<String, int> mistakeCategoryCounts = {};
+
+    for (int i = 0; i < widget.questions.length; i++) {
+      final question = widget.questions[i];
+      final userAnswerIndex = widget.userAnswers[i];
+      final bool isCorrect = userAnswerIndex == question.correctIndex;
+      final Duration timeTaken = widget.questionTimes[i];
+
+      // Slow Questions Count
+      if (timeTaken.inSeconds > 15) {
+        slowQuestionsCount++;
+      }
+
+      // Most Mistakes Category
+      if (!isCorrect && userAnswerIndex!= null && question.category!= null && question.category!.isNotEmpty) {
+        mistakeCategoryCounts.update(question.category!, (value) => value + 1, ifAbsent: () => 1);
+      }
+
+      // Fastest Question Time
+      if (timeTaken < fastestQuestionTime) {
+        fastestQuestionTime = timeTaken;
+        fastestQuestionNumber = (i + 1).toString();
+      }
+    }
+
+    if (mistakeCategoryCounts.isNotEmpty) {
+      mostMistakesCategory = mistakeCategoryCounts.entries.reduce((a, b) => a.value > b.value? a : b).key;
+    }
+
+    // --- END NEW: Calculate Analysis Stats ---
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("Test Results"),
@@ -218,6 +255,39 @@ class _ResultScreenState extends State<ResultScreen> {
               ),
             ),
             const SizedBox(height: 20),
+
+            // --- NEW: Question Analysis Stats Section ---
+            Text(
+              "Analysis Insights:",
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: primaryTextColor),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 10.0,
+              runSpacing: 10.0,
+              children: [
+                _buildStatChip(
+                  "Slow >15s",
+                  slowQuestionsCount.toString(),
+                  Colors.orange.shade700,
+                  isDarkTheme,
+                ),
+                _buildStatChip(
+                  "Most Mistakes",
+                  mostMistakesCategory,
+                  Colors.red.shade700,
+                  isDarkTheme,
+                ),
+                _buildStatChip(
+                  "Fastest Q",
+                  "#$fastestQuestionNumber (${_formatDuration(fastestQuestionTime)})",
+                  Colors.blue.shade700,
+                  isDarkTheme,
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            // --- END NEW: Question Analysis Stats Section ---
 
             // --- Question Review Header with Filter Chips ---
             Text(
@@ -326,7 +396,7 @@ class _ResultScreenState extends State<ResultScreen> {
                 final Duration timeTaken = widget.questionTimes[originalIndex];
                 final bool tookTooLong = timeTaken.inSeconds > 15;
 
-                // --- NEW: Determine status icon and color ---
+                // --- Determine status icon and color ---
                 IconData statusIcon;
                 Color iconColor;
 
@@ -337,10 +407,10 @@ class _ResultScreenState extends State<ResultScreen> {
                   statusIcon = Icons.cancel_rounded;
                   iconColor = Colors.red.shade600;
                 } else {
-                  statusIcon = Icons.help_outline_rounded; // Or Icons.hourglass_empty_rounded
+                  statusIcon = Icons.help_outline_rounded;
                   iconColor = secondaryTextColor;
                 }
-                // --- END NEW ---
+                // --- END status icon and color ---
 
                 String statusText;
                 Color statusColor;
@@ -389,13 +459,11 @@ class _ResultScreenState extends State<ResultScreen> {
                     child: ExpansionTile(
                       key: PageStorageKey(originalIndex), // Keep tile state across rebuilds
                       tilePadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                      // --- NEW: Add leading icon ---
                       leading: Icon(
                         statusIcon,
                         color: iconColor,
-                        size: 28, // Adjust size as needed
+                        size: 28,
                       ),
-                      // --- END NEW ---
                       title: Text(
                         "Q${originalIndex + 1}: ${_displayLanguage == "en"? question.questionEn : question.questionTe}",
                         style: TextStyle(
@@ -413,11 +481,24 @@ class _ResultScreenState extends State<ResultScreen> {
                               fontSize: 13,
                             ),
                           ),
-                          Text(
-                            "Time Taken: ${_formatDuration(timeTaken)}",
-                            style: TextStyle(
-                              color: tookTooLong? Colors.orange.shade700 : secondaryTextColor,
-                              fontSize: 13,
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4.0), // Added padding for spacing
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.timer,
+                                  size: 14,
+                                  color: tookTooLong? Colors.orange.shade700 : secondaryTextColor,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  "Time Taken: ${_formatDuration(timeTaken)}",
+                                  style: TextStyle(
+                                    color: tookTooLong? Colors.orange.shade700 : secondaryTextColor,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                           // --- ADDED CATEGORY DISPLAY HERE ---
@@ -463,26 +544,57 @@ class _ResultScreenState extends State<ResultScreen> {
                                 "Options:",
                                 style: TextStyle(fontWeight: FontWeight.bold, color: primaryTextColor),
                               ),
+                              // --- NEW: Wrap each option in a Container ---
                               ...List.generate(question.optionsEn.length, (optionIndex) {
                                 bool isSelectedOption = optionIndex == userAnswerIndex;
                                 bool isCorrectOption = optionIndex == question.correctIndex;
+
+                                Color optionBgColor;
+                                if (isCorrectOption) {
+                                  optionBgColor = Colors.green.withOpacity(0.1);
+                                } else if (isSelectedOption &&!isCorrectOption) {
+                                  optionBgColor = Colors.red.withOpacity(0.1);
+                                } else {
+                                  // For unselected options, if you want a very subtle highlight for dark theme or just transparent
+                                  optionBgColor = isDarkTheme && isSelectedOption == false
+                                      ? Colors.grey.withOpacity(0.05) // Subtle highlight for unselected in dark mode
+                                      : Colors.transparent;
+                                }
+
                                 return Padding(
                                   padding: const EdgeInsets.symmetric(vertical: 4.0),
-                                  child: Text(
-                                    "${String.fromCharCode(65 + optionIndex)}. ${_displayLanguage == "en"? question.optionsEn[optionIndex] : question.optionsTe[optionIndex]}",
-                                    style: TextStyle(
-                                      color: isCorrectOption
-                                          ? Colors.green.shade600
-                                          : isSelectedOption &&!isCorrectOption
-                                          ? Colors.red.shade600
-                                          : primaryTextColor,
-                                      fontWeight: isCorrectOption || isSelectedOption
-                                          ? FontWeight.bold
-                                          : FontWeight.normal,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: optionBgColor,
+                                      borderRadius: BorderRadius.circular(8),
+                                      // Optional: add a border if you want more definition for unselected options
+                                      border: Border.all(
+                                        color: isCorrectOption
+                                            ? Colors.green.shade400
+                                            : isSelectedOption &&!isCorrectOption
+                                            ? Colors.red.shade400
+                                            : Colors.transparent, // No border for other cases
+                                        width: 1,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      "${String.fromCharCode(65 + optionIndex)}. ${_displayLanguage == "en"? question.optionsEn[optionIndex] : question.optionsTe[optionIndex]}",
+                                      style: TextStyle(
+                                        color: isCorrectOption
+                                            ? Colors.green.shade600
+                                            : isSelectedOption &&!isCorrectOption
+                                            ? Colors.red.shade600
+                                            : primaryTextColor, // Default text color
+                                        fontWeight: isCorrectOption || isSelectedOption
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
+                                      ),
                                     ),
                                   ),
                                 );
                               }),
+                              // --- END NEW: Wrap each option in a Container ---
                               const SizedBox(height: 10),
                               Text(
                                 "Correct Answer: ${String.fromCharCode(65 + question.correctIndex)}",
@@ -544,4 +656,39 @@ class _ResultScreenState extends State<ResultScreen> {
       ),
     );
   }
+
+  // --- NEW: Helper for building Stat Chips ---
+  Widget _buildStatChip(String label, String value, Color color, bool isDarkTheme) {
+    return Chip(
+      label: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.normal,
+              color: isDarkTheme? color.withOpacity(0.7) : color.withOpacity(0.8), // Softer color for label
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: isDarkTheme? Colors.white : Colors.black87, // High contrast for value
+            ),
+          ),
+        ],
+      ),
+      backgroundColor: isDarkTheme? color.withOpacity(0.2) : color.withOpacity(0.1), // Subtle background
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: color.withOpacity(0.5), width: 1), // Border matching theme
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    );
+  }
+// --- END NEW: Helper for building Stat Chips ---
 }
