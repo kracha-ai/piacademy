@@ -118,42 +118,82 @@ class _ResultScreenState extends State<ResultScreen> {
     // Get the filtered list of question indices
     final List<int> filteredQuestionIndices = _getFilteredQuestionIndices();
 
-    // --- NEW: Calculate Analysis Stats ---
-    int slowQuestionsCount = 0;
-    String mostMistakesCategory = "N/A";
-    Duration fastestQuestionTime = Duration(days: 999); // Initialize with a very large duration
-    String fastestQuestionNumber = "N/A";
+    // --- REFINED: Calculate Analysis Stats ---
+    String categoriesWithWeakness = "N/A"; // Changed from Most Mistakes Category
 
-    Map<String, int> mistakeCategoryCounts = {};
+    // Track all questions by category to find weakness
+    Map<String, List<bool>> categoryPerformance = {}; // key: category, value: list of true (correct) or false (incorrect)
 
-    for (int i = 0; i < widget.questions.length; i++) {
-      final question = widget.questions[i];
-      final userAnswerIndex = widget.userAnswers[i];
-      final bool isCorrect = userAnswerIndex == question.correctIndex;
-      final Duration timeTaken = widget.questionTimes[i];
+    // For slowest questions
+    List<Map<String, dynamic>> answeredQuestionTimes = []; // { 'qNum': int, 'time': Duration }
+    final int SLOW_THRESHOLD_SECONDS = 25;
 
-      // Slow Questions Count
-      if (timeTaken.inSeconds > 15) {
-        slowQuestionsCount++;
+    if (widget.questions.isNotEmpty) {
+      for (int i = 0; i < widget.questions.length; i++) {
+        final question = widget.questions[i];
+        final userAnswerIndex = widget.userAnswers[i];
+        final bool isCorrect = userAnswerIndex == question.correctIndex;
+        final bool isAnswered = userAnswerIndex!= null;
+        final Duration timeTaken = widget.questionTimes[i];
+
+        // Categories with Weakness
+        if (question.category!= null && question.category!.isNotEmpty) {
+          if (!categoryPerformance.containsKey(question.category)) {
+            categoryPerformance[question.category!] = [];
+          }
+          if (isAnswered) { // Only track if answered, unanswered doesn't show strength/weakness
+            categoryPerformance[question.category!]!.add(isCorrect);
+          }
+        }
+
+        // Collect answered questions for slowest time analysis
+        if (isAnswered && timeTaken > Duration.zero) { // Exclude truly unanswered (0 time)
+          answeredQuestionTimes.add({
+            'qNum': i + 1,
+            'time': timeTaken,
+          });
+        }
       }
 
-      // Most Mistakes Category
-      if (!isCorrect && userAnswerIndex!= null && question.category!= null && question.category!.isNotEmpty) {
-        mistakeCategoryCounts.update(question.category!, (value) => value + 1, ifAbsent: () => 1);
+      // Determine categories with weakness
+      List<String> weakCategoriesList = [];
+      categoryPerformance.forEach((category, performanceList) {
+        if (performanceList.isNotEmpty && performanceList.every((isCorrect) => isCorrect == false)) {
+          // If all answered questions in this category were incorrect
+          weakCategoriesList.add(category);
+        }
+      });
+
+      if (weakCategoriesList.isNotEmpty) {
+        categoriesWithWeakness = weakCategoriesList.join(", "); // Join multiple weak categories
+      } else {
+        categoriesWithWeakness = "None identified 👍";
       }
 
-      // Fastest Question Time
-      if (timeTaken < fastestQuestionTime) {
-        fastestQuestionTime = timeTaken;
-        fastestQuestionNumber = (i + 1).toString();
-      }
+      // Sort answered questions by time taken in descending order (slowest first)
+      answeredQuestionTimes.sort((a, b) => b['time'].compareTo(a['time']));
     }
 
-    if (mistakeCategoryCounts.isNotEmpty) {
-      mostMistakesCategory = mistakeCategoryCounts.entries.reduce((a, b) => a.value > b.value? a : b).key;
-    }
+    String slowestQuestionsDisplay = "N/A";
+    if (answeredQuestionTimes.isNotEmpty) {
+      List<String> slowQuestionStrings = [];
+      List<Map<String, dynamic>> questionsAboveThreshold = answeredQuestionTimes
+          .where((q) => q['time'].inSeconds > SLOW_THRESHOLD_SECONDS)
+          .toList();
 
-    // --- END NEW: Calculate Analysis Stats ---
+      if (questionsAboveThreshold.isNotEmpty) {
+        // If any questions are above the threshold, list them all
+        slowQuestionStrings = questionsAboveThreshold.map((q) => "#${q['qNum']} (${_formatDuration(q['time'])})").toList();
+      } else {
+        // Otherwise, show the top 3 slowest (or fewer if less than 3 answered)
+        slowQuestionStrings = answeredQuestionTimes
+            .take(3)
+            .map((q) => "#${q['qNum']} (${_formatDuration(q['time'])})")
+            .toList();
+      }
+      slowestQuestionsDisplay = slowQuestionStrings.join(", ");
+    }
+    // --- END REFINED: Calculate Analysis Stats ---
 
     return Scaffold(
       appBar: AppBar(
@@ -256,7 +296,7 @@ class _ResultScreenState extends State<ResultScreen> {
             ),
             const SizedBox(height: 20),
 
-            // --- NEW: Question Analysis Stats Section ---
+            // --- REFINED: Question Analysis Stats Section ---
             Text(
               "Analysis Insights:",
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: primaryTextColor),
@@ -266,28 +306,23 @@ class _ResultScreenState extends State<ResultScreen> {
               spacing: 10.0,
               runSpacing: 10.0,
               children: [
+                // Removed "Slow >15s" chip
                 _buildStatChip(
-                  "Slow >15s",
-                  slowQuestionsCount.toString(),
-                  Colors.orange.shade700,
-                  isDarkTheme,
-                ),
-                _buildStatChip(
-                  "Most Mistakes",
-                  mostMistakesCategory,
+                  "Category Weakness", // Label remains the same
+                  categoriesWithWeakness,
                   Colors.red.shade700,
                   isDarkTheme,
                 ),
                 _buildStatChip(
-                  "Fastest Q",
-                  "#$fastestQuestionNumber (${_formatDuration(fastestQuestionTime)})",
+                  "Slowest Questions", // Updated label
+                  slowestQuestionsDisplay, // Updated value
                   Colors.blue.shade700,
                   isDarkTheme,
                 ),
               ],
             ),
             const SizedBox(height: 20),
-            // --- END NEW: Question Analysis Stats Section ---
+            // --- END REFINED: Question Analysis Stats Section ---
 
             // --- Question Review Header with Filter Chips ---
             Text(
@@ -426,14 +461,15 @@ class _ResultScreenState extends State<ResultScreen> {
                 }
 
                 String highlightReason = "";
-                if (tookTooLong) {
+                // This `tookTooLong` is for the card highlight, still useful here.
+                // We're just not showing a "Slow >15s" stat chip anymore.
+                if (timeTaken.inSeconds > 15) { // Still use 15s for individual card highlight
                   highlightReason = " (Took too long)";
                 }
 
                 // --- UPDATED cardHighlightColor Logic ---
                 Color cardHighlightColor;
-                if (tookTooLong) {
-                  // Prioritize orange highlight if took too long
+                if (timeTaken.inSeconds > 15) { // Prioritize orange highlight if took too long for the card itself
                   cardHighlightColor = isDarkTheme? Colors.orange.shade900 : Colors.orange.shade100;
                 } else if (isCorrect) {
                   // Green for correct
@@ -488,13 +524,13 @@ class _ResultScreenState extends State<ResultScreen> {
                                 Icon(
                                   Icons.timer,
                                   size: 14,
-                                  color: tookTooLong? Colors.orange.shade700 : secondaryTextColor,
+                                  color: (timeTaken.inSeconds > 15)? Colors.orange.shade700 : secondaryTextColor,
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
                                   "Time Taken: ${_formatDuration(timeTaken)}",
                                   style: TextStyle(
-                                    color: tookTooLong? Colors.orange.shade700 : secondaryTextColor,
+                                    color: (timeTaken.inSeconds > 15)? Colors.orange.shade700 : secondaryTextColor,
                                     fontSize: 13,
                                   ),
                                 ),
@@ -657,7 +693,7 @@ class _ResultScreenState extends State<ResultScreen> {
     );
   }
 
-  // --- NEW: Helper for building Stat Chips ---
+  // --- Helper for building Stat Chips ---
   Widget _buildStatChip(String label, String value, Color color, bool isDarkTheme) {
     return Chip(
       label: Column(
@@ -690,5 +726,4 @@ class _ResultScreenState extends State<ResultScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
     );
   }
-// --- END NEW: Helper for building Stat Chips ---
 }
