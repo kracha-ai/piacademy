@@ -35,7 +35,7 @@ class _ResultScreenState extends State<ResultScreen> {
   late String _displayLanguage; // "en" or "te"
   String _selectedFilter = "All"; // Default filter option
 
-  // Options for the filter dropdown
+  // Options for the filter chips
   final List<String> _filterOptions = [
     "All",
     "Incorrect",
@@ -91,6 +91,8 @@ class _ResultScreenState extends State<ResultScreen> {
     final Color primaryTextColor = isDarkTheme? Colors.white : Colors.black87;
     final Color secondaryTextColor = isDarkTheme? Colors.grey.shade400 : Colors.grey.shade700;
     final Color highlightColor = Theme.of(context).primaryColor;
+    // Removed general chipBackgroundColor and selectedChipColor/selectedChipTextColor
+    // as these will now be determined per-chip based on its filter type.
 
     final int correctCount = widget.score;
     final int incorrectCount = widget.questions.where((q) => widget.userAnswers[widget.questions.indexOf(q)]!= null && widget.userAnswers[widget.questions.indexOf(q)]!= q.correctIndex).length;
@@ -219,52 +221,86 @@ class _ResultScreenState extends State<ResultScreen> {
             ),
             const SizedBox(height: 20),
 
-            // --- Question Review Header with Filter ---
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  "Question Review:",
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: primaryTextColor),
-                ),
-                Container( // Make dropdown look like a button
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).cardColor,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: secondaryTextColor.withOpacity(0.5)),
-                  ),
-                  child: DropdownButtonHideUnderline( // Hide default underline
-                    child: DropdownButton<String>(
-                      value: _selectedFilter,
-                      icon: Icon(Icons.arrow_drop_down, color: primaryTextColor),
-                      dropdownColor: Theme.of(context).cardColor, // Ensure dropdown background is themed
-                      style: TextStyle(color: primaryTextColor, fontSize: 15), // Themed text style for selected value
-                      onChanged: (String? newValue) {
-                        setState(() {
-                          _selectedFilter = newValue!;
-                        });
-                      },
-                      items: _filterOptions.map<DropdownMenuItem<String>>((String value) {
-                        Color optionColor;
-                        if (value == "Correct") {
-                          optionColor = Colors.green.shade600;
-                        } else if (value == "Incorrect") {
-                          optionColor = Colors.red.shade600;
-                        } else if (value == "Unanswered") {
-                          optionColor = secondaryTextColor; // A neutral grey
-                        } else { // "All"
-                          optionColor = primaryTextColor;
-                        }
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value, style: TextStyle(color: optionColor)), // Themed item text
-                        );
-                      }).toList(),
+            // --- Question Review Header with Filter Chips ---
+            Text(
+              "Question Review:",
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: primaryTextColor),
+            ),
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerLeft, // Align chips to the left
+              child: Wrap(
+                spacing: 8.0, // Space between chips
+                runSpacing: 4.0, // Space between rows of chips
+                children: _filterOptions.map((String filterName) {
+                  // --- NEW LOGIC FOR CHIP COLORS ---
+                  Color chipBgColor;
+                  Color chipSelectedColor;
+                  Color chipTextColor;
+                  Color chipBorderColor;
+
+                  switch (filterName) {
+                    case "All":
+                      chipBgColor = isDarkTheme? Colors.grey.shade800 : Colors.grey.shade200;
+                      chipSelectedColor = highlightColor; // Your theme's primary color
+                      chipTextColor = _selectedFilter == filterName? Colors.white : primaryTextColor;
+                      chipBorderColor = _selectedFilter == filterName? highlightColor : secondaryTextColor.withOpacity(0.5);
+                      break;
+                    case "Correct":
+                      chipBgColor = isDarkTheme? Colors.green.shade900 : Colors.green.shade100;
+                      chipSelectedColor = Colors.green.shade700;
+                      chipTextColor = _selectedFilter == filterName? Colors.white : (isDarkTheme? Colors.green.shade200 : Colors.green.shade800);
+                      chipBorderColor = _selectedFilter == filterName? Colors.green.shade700 : Colors.green.shade400;
+                      break;
+                    case "Incorrect":
+                      chipBgColor = isDarkTheme? Colors.red.shade900 : Colors.red.shade100;
+                      chipSelectedColor = Colors.red.shade700;
+                      chipTextColor = _selectedFilter == filterName? Colors.white : (isDarkTheme? Colors.red.shade200 : Colors.red.shade800);
+                      chipBorderColor = _selectedFilter == filterName? Colors.red.shade700 : Colors.red.shade400;
+                      break;
+                    case "Unanswered":
+                      chipBgColor = isDarkTheme? Colors.blueGrey.shade900 : Colors.grey.shade100;
+                      chipSelectedColor = isDarkTheme? Colors.blueGrey.shade700 : Colors.grey.shade500;
+                      chipTextColor = _selectedFilter == filterName? Colors.white : (isDarkTheme? Colors.blueGrey.shade200 : Colors.grey.shade800);
+                      chipBorderColor = _selectedFilter == filterName? (isDarkTheme? Colors.blueGrey.shade700 : Colors.grey.shade500) : secondaryTextColor.withOpacity(0.5);
+                      break;
+                    default:
+                      chipBgColor = isDarkTheme? Colors.grey.shade800 : Colors.grey.shade200;
+                      chipSelectedColor = highlightColor;
+                      chipTextColor = _selectedFilter == filterName? Colors.white : primaryTextColor;
+                      chipBorderColor = _selectedFilter == filterName? highlightColor : secondaryTextColor.withOpacity(0.5);
+                  }
+                  // --- END NEW LOGIC FOR CHIP COLORS ---
+
+                  return ChoiceChip(
+                    label: Text(
+                      filterName,
+                      style: TextStyle(
+                        color: chipTextColor, // Use the dynamically determined text color
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                  ),
-                ),
-              ],
+                    selected: _selectedFilter == filterName,
+                    selectedColor: chipSelectedColor, // Use the dynamically determined selected color
+                    backgroundColor: chipBgColor, // Use the dynamically determined background color
+                    onSelected: (bool selected) {
+                      if (selected) {
+                        setState(() {
+                          _selectedFilter = filterName;
+                        });
+                      }
+                    },
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      side: BorderSide(
+                        color: chipBorderColor, // Use the dynamically determined border color
+                      ),
+                    ),
+                    elevation: 2,
+                    pressElevation: 4,
+                  );
+                }).toList(),
+              ),
             ),
             const SizedBox(height: 15),
 
@@ -365,8 +401,6 @@ class _ResultScreenState extends State<ResultScreen> {
                           ),
                           // --- ADDED CATEGORY DISPLAY HERE ---
                           if (question.category!= null && question.category!.isNotEmpty)
-
-
                             Padding(
                               padding: const EdgeInsets.only(top: 4.0),
                               child: Text(
