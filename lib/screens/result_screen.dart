@@ -91,8 +91,6 @@ class _ResultScreenState extends State<ResultScreen> {
     final Color primaryTextColor = isDarkTheme? Colors.white : Colors.black87;
     final Color secondaryTextColor = isDarkTheme? Colors.grey.shade400 : Colors.grey.shade700;
     final Color highlightColor = Theme.of(context).primaryColor;
-    // Removed general chipBackgroundColor and selectedChipColor/selectedChipTextColor
-    // as these will now be determined per-chip based on its filter type.
 
     final int correctCount = widget.score;
     final int incorrectCount = widget.questions.where((q) => widget.userAnswers[widget.questions.indexOf(q)]!= null && widget.userAnswers[widget.questions.indexOf(q)]!= q.correctIndex).length;
@@ -233,7 +231,7 @@ class _ResultScreenState extends State<ResultScreen> {
                 spacing: 8.0, // Space between chips
                 runSpacing: 4.0, // Space between rows of chips
                 children: _filterOptions.map((String filterName) {
-                  // --- NEW LOGIC FOR CHIP COLORS ---
+                  // --- LOGIC FOR CHIP COLORS ---
                   Color chipBgColor;
                   Color chipSelectedColor;
                   Color chipTextColor;
@@ -270,19 +268,19 @@ class _ResultScreenState extends State<ResultScreen> {
                       chipTextColor = _selectedFilter == filterName? Colors.white : primaryTextColor;
                       chipBorderColor = _selectedFilter == filterName? highlightColor : secondaryTextColor.withOpacity(0.5);
                   }
-                  // --- END NEW LOGIC FOR CHIP COLORS ---
+                  // --- END LOGIC FOR CHIP COLORS ---
 
                   return ChoiceChip(
                     label: Text(
                       filterName,
                       style: TextStyle(
-                        color: chipTextColor, // Use the dynamically determined text color
+                        color: chipTextColor,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
                     selected: _selectedFilter == filterName,
-                    selectedColor: chipSelectedColor, // Use the dynamically determined selected color
-                    backgroundColor: chipBgColor, // Use the dynamically determined background color
+                    selectedColor: chipSelectedColor,
+                    backgroundColor: chipBgColor,
                     onSelected: (bool selected) {
                       if (selected) {
                         setState(() {
@@ -293,7 +291,7 @@ class _ResultScreenState extends State<ResultScreen> {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
                       side: BorderSide(
-                        color: chipBorderColor, // Use the dynamically determined border color
+                        color: chipBorderColor,
                       ),
                     ),
                     elevation: 2,
@@ -327,6 +325,22 @@ class _ResultScreenState extends State<ResultScreen> {
                 final bool isCorrect = userAnswerIndex == question.correctIndex;
                 final Duration timeTaken = widget.questionTimes[originalIndex];
                 final bool tookTooLong = timeTaken.inSeconds > 15;
+
+                // --- NEW: Determine status icon and color ---
+                IconData statusIcon;
+                Color iconColor;
+
+                if (isCorrect) {
+                  statusIcon = Icons.check_circle_rounded;
+                  iconColor = Colors.green.shade600;
+                } else if (userAnswerIndex!= null) {
+                  statusIcon = Icons.cancel_rounded;
+                  iconColor = Colors.red.shade600;
+                } else {
+                  statusIcon = Icons.help_outline_rounded; // Or Icons.hourglass_empty_rounded
+                  iconColor = secondaryTextColor;
+                }
+                // --- END NEW ---
 
                 String statusText;
                 Color statusColor;
@@ -375,6 +389,13 @@ class _ResultScreenState extends State<ResultScreen> {
                     child: ExpansionTile(
                       key: PageStorageKey(originalIndex), // Keep tile state across rebuilds
                       tilePadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                      // --- NEW: Add leading icon ---
+                      leading: Icon(
+                        statusIcon,
+                        color: iconColor,
+                        size: 28, // Adjust size as needed
+                      ),
+                      // --- END NEW ---
                       title: Text(
                         "Q${originalIndex + 1}: ${_displayLanguage == "en"? question.questionEn : question.questionTe}",
                         style: TextStyle(
