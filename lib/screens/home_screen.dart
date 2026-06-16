@@ -45,7 +45,7 @@ class _PosterSectionState extends State<PosterSection> {
         );
       },
       options: CarouselOptions(
-        height: 160.0,
+        height: 110.0,
         autoPlay: true,
         enlargeCenterPage: true,
         viewportFraction: 0.9,
@@ -144,22 +144,23 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 16),
-            const PosterSection(),
-            const SizedBox(height: 24),
-            // 6. Pass the loaded test data and fetch function to the _ContinueSection
+
+            // 1. TESTS COME FIRST NOW
             _ContinueSection(
               dbService: _dbService,
               unfinishedTest: _unfinishedTest,
               fetchTestDocument: _fetchTestDocument,
-              onTestResumed: _checkUnfinishedTest, // Pass callback to refresh state
+              onTestResumed: _checkUnfinishedTest,
             ),
             _PerformanceSnapshot(dbService: _dbService),
-            _FeaturedTests(dbService: _dbService,
+            _FeaturedTests(
+              dbService: _dbService,
               unfinishedTest: _unfinishedTest,
               fetchTestDocument: _fetchTestDocument,
               onTestResumed: _checkUnfinishedTest,
             ),
-            // Updated below
+
+            // 2. Tools
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 24, 16, 0),
               child: Text(
@@ -168,6 +169,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               ),
             ),
             const _ActionGrid(),
+
+            const SizedBox(height: 24),
+
+            // 3. YOUTUBE CAROUSEL MOVED TO BOTTOM
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Text(
+                "Free Learning Videos",
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+            ),
+            const PosterSection(),
+
             const SizedBox(height: 24),
           ],
         ),
@@ -185,7 +199,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ),
     );
   }
-}
+} // <-- THIS CLOSING BRACE WAS MISSING
 
 // --- Firestore Test Display (No changes needed) ---
 class _FirestoreTestDisplay extends StatelessWidget {
@@ -288,8 +302,8 @@ class _ContinueSection extends StatelessWidget {
                     final int duration = testDoc['durationMinutes']?? 30;
                     final List<Map<String, dynamic>> questions =
                         (testDoc['questions'] as List?)
-                            ?.map((q) => q as Map<String, dynamic>)
-                            .toList()?? [];
+                           ?.map((q) => q as Map<String, dynamic>)
+                           .toList()?? [];
 
                     if (questions.isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error: Test has no questions.")));
@@ -414,9 +428,9 @@ class _FeaturedTests extends StatelessWidget {
           height: 160,
           child: StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
-                .collection('tests')
-                .where('isFeatured', isEqualTo: true)
-                .snapshots(),
+               .collection('tests')
+               .where('isFeatured', isEqualTo: true)
+               .snapshots(),
             builder: (context, snapshot) {
               if (snapshot.hasError) return Center(child: Text("Error loading tests"));
               if (snapshot.connectionState == ConnectionState.waiting) return Center(child: CircularProgressIndicator());
@@ -450,8 +464,8 @@ class _FeaturedTests extends StatelessWidget {
                               final int duration = data['durationMinutes']?? 30;
                               final List<Map<String, dynamic>> questions =
                                   (data['questions'] as List?)
-                                      ?.map((q) => q as Map<String, dynamic>)
-                                      .toList()?? [];
+                                     ?.map((q) => q as Map<String, dynamic>)
+                                     .toList()?? [];
                               if (questions.isEmpty) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(content: Text("This test has no questions yet!")),
@@ -467,8 +481,8 @@ class _FeaturedTests extends StatelessWidget {
                                   // Make sure questions are updated in case Firestore changed
                                   final List<Map<String, dynamic>> resumedQuestions =
                                       (testDoc['questions'] as List?)
-                                          ?.map((q) => q as Map<String, dynamic>)
-                                          .toList()?? [];
+                                         ?.map((q) => q as Map<String, dynamic>)
+                                         .toList()?? [];
                                   if (resumedQuestions.isEmpty) {
                                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error: Test has no questions.")));
                                     await dbService.clearUnfinishedTest();
